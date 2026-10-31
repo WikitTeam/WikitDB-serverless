@@ -9,6 +9,7 @@ const {
     parsePageName
 } = require('../../utils/staffPostDeletion');
 
+// 管理机器人账号并预览、手动发布删除公告。
 const StaffPostDeletion = () => {
     const wikis = config.SUPPORT_WIKI || [];
     // 登录保护：该工具要求登录后使用（后端 API 亦已用 withAuth 强制校验）
@@ -47,11 +48,6 @@ const StaffPostDeletion = () => {
     const [editDeleteScore, setEditDeleteScore] = useState(-5);
     const [editCountdownHours, setEditCountdownHours] = useState(72);
     const [editSessionCookie, setEditSessionCookie] = useState('');
-    // 删除公告 Bot 管理（控制独立 Python bot）
-    const [botInfo, setBotInfo] = useState(null);
-    const [botConfig, setBotConfig] = useState(null);
-    const [botLoading, setBotLoading] = useState(false);
-    const [botManageMsg, setBotManageMsg] = useState('');
 
     // 扫描间隔可选项：值（分钟）
     const SCAN_INTERVAL_OPTIONS = [
@@ -114,7 +110,6 @@ const StaffPostDeletion = () => {
                 }
             })
             .catch(() => {});
-        loadBotInfo();
     }, [isLoggedIn]);
 
     const timerBaseUrl = typeof window !== 'undefined'
@@ -230,56 +225,6 @@ const StaffPostDeletion = () => {
             await loadBots();
         } catch (e) {
             setBotMsg('保存失败：' + e.message);
-        }
-    };
-
-    // --- 删除公告 Bot 管理（控制 /opt/wikit-delete-bot 的 Python bot） ---
-    const loadBotInfo = async () => {
-        try {
-            const res = await fetch('/api/tools/delete-bot');
-            const d = await res.json();
-            if (d.success) {
-                setBotInfo(d);
-                setBotConfig(d.config);
-            }
-        } catch (e) { /* 忽略 */ }
-    };
-
-    const botAction = async (action) => {
-        setBotLoading(true);
-        setBotManageMsg('');
-        try {
-            const res = await fetch('/api/tools/delete-bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action })
-            });
-            const d = await res.json();
-            setBotManageMsg(d.message || d.error || '完成');
-            await loadBotInfo();
-        } catch (e) {
-            setBotManageMsg('操作失败：' + e.message);
-        } finally {
-            setBotLoading(false);
-        }
-    };
-
-    const saveBotConfig = async () => {
-        setBotLoading(true);
-        setBotManageMsg('');
-        try {
-            const res = await fetch('/api/tools/delete-bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'updateConfig', config: botConfig })
-            });
-            const d = await res.json();
-            setBotManageMsg(d.message || d.error || '保存失败');
-            await loadBotInfo();
-        } catch (e) {
-            setBotManageMsg('保存失败：' + e.message);
-        } finally {
-            setBotLoading(false);
         }
     };
 
@@ -730,88 +675,6 @@ const StaffPostDeletion = () => {
                     </div>
                 )}
 
-                {/* 删除公告 Bot 管理（控制独立 Python bot） */}
-                <div className="mt-6 bg-panel rounded-xl p-6 border border-line">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold text-fg flex items-center gap-2">
-                            <i className="fa-solid fa-robot text-green-600 dark:text-green-400"></i> 删除公告 Bot（自动运行）
-                        </h2>
-                        <span className={`px-3 py-1 rounded text-xs font-medium ${botInfo && botInfo.active ? 'bg-green-600/20 text-green-600 dark:text-green-400' : 'bg-red-600/20 text-red-600 dark:text-red-400'}`}>
-                            {botInfo && botInfo.active ? '● 运行中' : '○ 已停止'}
-                        </span>
-                    </div>
-                    <p className="text-xs text-fg-3 mb-4">
-                        独立 Python bot（/opt/wikit-delete-bot）每 30 分钟自动扫描站点，为低分页面添加「待删除」标签并发布「职员帖：删除宣告」。可在下方配置账号与手动会话、触发运行或查看日志。
-                    </p>
-
-                    {botManageMsg && (
-                        <div className="mb-3 p-3 rounded-lg bg-accent-soft border border-accent-line text-accent text-sm">{botManageMsg}</div>
-                    )}
-
-                    {botConfig ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-xs text-fg-3 mb-1">机器人账号</label>
-                                <input type="text" value={botConfig.username || ''} onChange={(e) => setBotConfig({ ...botConfig, username: e.target.value })}
-                                    className="w-full bg-sunken border border-line text-fg text-sm rounded-lg p-2.5" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-fg-3 mb-1">机器人密码</label>
-                                <input type="password" value={botConfig.password || ''} onChange={(e) => setBotConfig({ ...botConfig, password: e.target.value })}
-                                    className="w-full bg-sunken border border-line text-fg text-sm rounded-lg p-2.5" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-fg-3 mb-1">目标站点</label>
-                                <input type="text" value={botConfig.siteUnixName || ''} onChange={(e) => setBotConfig({ ...botConfig, siteUnixName: e.target.value })}
-                                    className="w-full bg-sunken border border-line text-fg text-sm rounded-lg p-2.5" placeholder="如 rule-wiki" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-fg-3 mb-1">手动会话 WIKIDOT_SESSION_ID
-                                    {botConfig.session_cookie ? <span className="text-green-600 dark:text-green-400"> · 已配置</span> : <span className="text-amber-600 dark:text-amber-400"> · 未配置</span>}
-                                </label>
-                                <input type="text" value={botConfig.session_cookie || ''} onChange={(e) => setBotConfig({ ...botConfig, session_cookie: e.target.value })}
-                                    className="w-full bg-sunken border border-line text-fg text-sm rounded-lg p-2.5 font-mono"
-                                    placeholder="浏览器登录后复制 WIKIDOT_SESSION_ID 的值" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-fg-3 mb-1">扫描间隔（分钟）</label>
-                                <input type="number" min="1" value={botConfig.scan_interval_minutes || 30} onChange={(e) => setBotConfig({ ...botConfig, scan_interval_minutes: parseInt(e.target.value, 10) || 30 })}
-                                    className="w-full bg-sunken border border-line text-fg text-sm rounded-lg p-2.5" />
-                                <p className="text-xs text-fg-3 mt-1">Bot 每隔该时间自动扫描一轮</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-fg-3 text-sm mb-4">无法读取 bot 配置（bot 未部署？）</div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <button type="button" onClick={saveBotConfig} disabled={botLoading}
-                            className="px-4 py-2 bg-accent-solid text-accent-fg rounded-lg hover:bg-accent-solid-hover transition-colors text-sm font-medium disabled:opacity-50">
-                            <i className="fa-solid fa-floppy-disk mr-1.5"></i>保存配置
-                        </button>
-                        <button type="button" onClick={() => botAction('run')} disabled={botLoading}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50">
-                            <i className="fa-solid fa-play mr-1.5"></i>立即运行一轮
-                        </button>
-                        <button type="button" onClick={() => botAction('restart')} disabled={botLoading}
-                            className="px-4 py-2 bg-amber-600/30 text-amber-600 dark:text-amber-300 rounded-lg hover:bg-amber-600/50 transition-colors text-sm font-medium disabled:opacity-50">
-                            <i className="fa-solid fa-rotate mr-1.5"></i>重启服务
-                        </button>
-                        <button type="button" onClick={() => botAction('stop')} disabled={botLoading}
-                            className="px-4 py-2 bg-red-600/30 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-600/50 transition-colors text-sm font-medium disabled:opacity-50">
-                            <i className="fa-solid fa-stop mr-1.5"></i>停止
-                        </button>
-                    </div>
-
-                    {botInfo && botInfo.log ? (
-                        <div>
-                            <label className="block text-xs text-fg-3 mb-1">最近日志</label>
-                            <pre className="w-full max-h-56 overflow-auto bg-sunken border border-line rounded-lg p-3 text-xs text-fg-3 font-mono whitespace-pre-wrap">{botInfo.log}</pre>
-                        </div>
-                    ) : (
-                        <div className="text-fg-3 text-sm">暂无日志</div>
-                    )}
-                </div>
             </div>
         </>
     );

@@ -7,6 +7,10 @@
 .next
 *.tsbuildinfo
 
+# local development artifacts and Vercel state
+/artifacts/
+/.vercel/
+
 # env & secrets
 .env
 .env.*
@@ -14,6 +18,7 @@
 
 # runtime data and local databases
 /data/*.json
+/wikit_data/
 
 # runtime logs
 crawler.log

@@ -86,7 +86,7 @@ npm run dev
 
 默认监听 `http://localhost:3000`。
 
-## 生产部署
+## 构建与本地运行
 
 ### 构建
 
@@ -104,16 +104,6 @@ npm run worker
 ```
 
 Worker 会在每天 12:00（Asia/Shanghai 时区）对所有 `wikitdb.config.js` 中声明的站点执行备份，归档写入工作目录下的 `wikit_data/`。任务限定为单进程串行执行，且服务端始终传递 `--keep-removed`，确保从 sitemap 消失的页面仍保留在归档中。
-
-### 进程管理
-
-推荐使用 PM2 守护 `npm start` 与 `npm run worker` 两个进程：
-
-```bash
-pm2 start "npm start" --name wikitdb
-pm2 start "npm run worker" --name wikitdb-worker
-pm2 save
-```
 
 ## 项目结构
 
