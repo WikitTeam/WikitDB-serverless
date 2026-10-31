@@ -11,7 +11,7 @@ WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。�
 - **虚拟股市**：把创作产出、评分变化、互动数据转化为波动曲线的「作者概念股」
 - **论坛同步**：已接入分站的论坛帖子索引与搜索，保留完整回帖树结构
 - **实用工具集**：盲盒抽取、删除公告生成、质量评审、悬赏活动、宾果活动、乱斗竞猜、成员自助管理等
-- **管理员备份**：基于 wikit CLI 的可视化备份管理工具，支持每日定时任务
+- **站点备份**：通过独立脚本调用 wikit CLI 备份已配置站点
 
 ## 技术栈
 
@@ -25,7 +25,6 @@ WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。�
 | 论坛渲染 | FTML (Wikidot 文本标记语言) WASM 内核 |
 | HTML 消毒 | sanitize-html |
 | 鉴权 | JWT (HS256) + bcrypt + httpOnly Cookie |
-| 定时任务 | node-cron |
 | 邮件 | nodemailer |
 | 缓存 | Upstash Redis (可选) |
 | 语言 | JavaScript (逐步迁移至 TypeScript) |
@@ -97,21 +96,29 @@ npm start
 
 ### 爬虫与备份 Worker
 
-在仓库根目录启动主爬虫及每日备份调度：
+在仓库根目录执行一轮主爬虫：
 
 ```bash
 npm run worker
 ```
 
-主爬虫启动后立即执行一轮，此后按运行环境时区每三小时执行。备份每天 12:00（Asia/Shanghai 时区）运行，需要在 PATH 中安装 wikit CLI。备份覆盖 `shared/wikitdb.config.js` 中配置的站点，归档写入仓库根目录的 `wikit_data/`，通过 `--keep-removed` 保留从 sitemap 消失的页面。
+主爬虫依次处理已配置站点，完成后退出。个别页面或站点失败后继续处理其他任务；清单和页面请求最多尝试三次。
 
-归属同步使用独立脚本，启动时执行一轮，此后每 30 分钟同步归属资料和作者评分：
+归属同步使用独立脚本，执行一轮归属资料和作者评分同步：
 
 ```bash
 node worker/auto-attribution.js
 ```
 
-两个 Worker 的日志均写入仓库根目录的 `crawler.log`。
+备份使用独立入口，需要在 PATH 中安装 wikit CLI：
+
+```bash
+node worker/backup.js
+```
+
+备份覆盖 `shared/wikitdb.config.js` 中配置的站点，归档写入仓库根目录的 `wikit_data/`，通过 `--keep-removed` 保留从 sitemap 消失的页面。
+
+三个入口均在单轮任务结束后退出，成功返回 0，存在最终失败时返回 1。任务状态输出到控制台和仓库根目录的 `crawler.log`，wikit 子进程输出直接转到控制台。
 
 ## 项目结构
 
@@ -130,8 +137,9 @@ WikitDB-Serverless/
 │   ├── middleware.js       # 全局限速 / Honeypot
 │   └── next.config.js      # Next.js 配置及安全头
 ├── worker/
-│   ├── auto-crawler.js     # 主爬虫及每日备份调度
+│   ├── auto-crawler.js     # 单轮主爬虫
 │   ├── auto-attribution.js # 归属与作者评分同步
+│   ├── backup.js           # 单次站点备份
 │   └── utils/             # 归属解析、备份参数
 ├── shared/
 │   ├── prisma.js          # Prisma Client 及 Setting 扩展
@@ -154,7 +162,7 @@ WikitDB-Serverless/
 | `npm run typecheck` | TypeScript 类型检查 (`tsc --noEmit`) |
 | `npm test` | 运行网站单元测试 |
 | `npm run test:ftml` | FTML 运行时测试 |
-| `npm run worker` | 启动主爬虫及每日备份调度 |
+| `npm run worker` | 执行一轮主爬虫 |
 | `npm run prisma:generate` | 生成 Prisma Client |
 | `npm run prisma:push` | 同步 schema 到数据库 |
 | `npm run prisma:studio` | 打开 Prisma Studio 可视化管理数据库 |

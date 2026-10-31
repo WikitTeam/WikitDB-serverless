@@ -1,10 +1,8 @@
 /**
- * WikitDB 归属资料独立定时任务
- * 与主爬虫（auto-crawler.js 逐页爬取）完全解耦：
- * 每 30 分钟单独抓取各站点的「归属资料页」+ listpages 页面评分，
+ * WikitDB 归属资料单次同步任务
+ * 抓取各站点的「归属资料页」和 listpages 页面评分，
  * 同步 author_attributions 表并聚合作者分数（author_score:{site}）。
  */
-const cron = require('node-cron');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -117,33 +115,32 @@ async function processSite(siteConfig) {
     logLine(`[归属] ${wikiParam} 归属 ${attrRecords.length} 条 | 页面评分 ${allPages.length} | 作者 ${Object.keys(authorScores).length} 位`);
 }
 
-let isRunning = false;
-
+/** 同步一轮归属资料，隔离站点失败并设置整轮退出码。 */
 async function runAttribution() {
-    if (isRunning) {
-        logLine('[归属] 上一轮尚未结束，跳过本次触发');
-        return;
-    }
-    isRunning = true;
     const start = Date.now();
-    try {
-        const sites = config.SUPPORT_WIKI.filter(w => w.ATTRIBUTION_PAGE);
-        logLine(`[归属] 开始执行（${sites.length} 个站点配置了归属资料页）...`);
-        for (const siteConfig of sites) {
-            try {
-                await processSite(siteConfig);
-            } catch (e) {
-                logLine(`[归属] ${siteConfig.PARAM} 处理失败: ${e.message}`);
-            }
+    let failedSites = 0;
+    // 只同步配置了归属资料页的站点。
+    const sites = config.SUPPORT_WIKI.filter(w => w.ATTRIBUTION_PAGE);
+    logLine(`[归属] 开始执行（${sites.length} 个站点配置了归属资料页）...`);
+    for (const siteConfig of sites) {
+        try {
+            await processSite(siteConfig);
+        } catch (e) {
+            failedSites++;
+            process.exitCode = 1;
+            logLine(`[归属] ${siteConfig.PARAM} 处理失败: ${e.message}`);
         }
-        logLine(`[归属] 执行完成，耗时 ${Math.round((Date.now() - start) / 1000)}s`);
-    } catch (e) {
-        logLine(`[归属] 发生异常: ${e.message}`);
-    } finally {
-        isRunning = false;
     }
+    logLine(`[归属] ${failedSites ? '失败' : '完成'}：站点失败 ${failedSites}/${sites.length}，耗时 ${Math.round((Date.now() - start) / 1000)}s`);
 }
 
-// 每 30 分钟执行一次；启动时立即执行一轮
-cron.schedule('*/30 * * * *', () => runAttribution());
-runAttribution();
+// 无论同步结果如何，都释放本轮使用的连接。
+runAttribution().finally(async () => {
+    httpAgent.destroy();
+    httpsAgent.destroy();
+    await prisma.$disconnect();
+}).catch((error) => {
+    // 报告未被站点隔离处理的任务或资源释放异常。
+    process.exitCode = 1;
+    logLine(`[归属] 任务失败: ${error.message}`);
+});
