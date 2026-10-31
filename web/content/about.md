@@ -34,18 +34,7 @@
 
 ## 收录站点（当前 {WIKIS_COUNT} 个）
 
-| 站点 | 简写 | 说明 |
-|------|------|------|
-| 深林文学部 | dfc | 文学创作导向 |
-| 后室 IF 分站 | if | Backrooms 衍生 |
-| 地下黑市 | ubmh | 原创创作社区 |
-| SCP 基金会云国分部 | scp-wiki-cloud | SCP 同人 |
-| 规则怪谈档案馆 | rule | 规则怪谈专题 |
-| 纸上书 | wop | 纸笔主题创作 |
-| The Backrooms X 层群 | x | Backrooms 衍生 |
-| 世界机构联合体 | pin | 世界观共创 |
-| SCP 基金会 Minecraft 分部 | scp-wiki-mc | SCP + MC 融合 |
-| The Backrooms 中文维基 | brcn | Backrooms 主分社区 |
+{WIKIS_TABLE}
 
 > 如需申请收录更多站点，请联系 WikitDB 团队职员。
 

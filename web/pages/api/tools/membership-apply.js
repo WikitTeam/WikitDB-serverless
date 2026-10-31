@@ -2,12 +2,13 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { withAuth } from '#utils/withAuth';
 import { getTrustedWikiByUrl } from '#utils/trustedWiki';
+const { getSites } = require('@wikitdb/shared/sites');
 const { wikidotLimiter } = require('#utils/rateLimiter');
 
 const LOGIN_URL = 'https://www.wikidot.com/default--flow/login__LoginPopupScreen';
 
-function normalizeUrl(url) {
-    const wiki = getTrustedWikiByUrl(url);
+function normalizeUrl(url, sites) {
+    const wiki = getTrustedWikiByUrl(url, sites);
     return wiki ? wiki.URL.replace(/\/$/, '') : null;
 }
 
@@ -55,10 +56,10 @@ async function wikidotLogin(username, password) {
     return sessionId;
 }
 
-async function wikidotAjax(siteUrl, sessionId, params) {
+async function wikidotAjax(siteUrl, sessionId, params, configuredSites) {
     await wikidotLimiter.wait(10000);
 
-    const baseUrl = normalizeUrl(siteUrl);
+    const baseUrl = normalizeUrl(siteUrl, configuredSites);
     if (!baseUrl) throw new Error('仅允许访问系统配置中的 HTTPS Wikidot 站点');
     const ajaxUrl = `${baseUrl}/ajax-module-connector.php`;
     const cookie = `WIKIDOT_SESSION_ID=${sessionId}; wikidot_token7=123456;`;
@@ -100,12 +101,14 @@ async function handler(req, res) {
             return res.status(200).json({ sessionId: sid, preview: sid.substring(0, 8) + '...' });
         }
 
+        const configuredSites = await getSites();
+
         if (action === 'list') {
             if (!siteUrl || !sessionId) {
                 return res.status(400).json({ error: '缺少站点 URL 或 session' });
             }
 
-            const baseUrl = normalizeUrl(siteUrl);
+            const baseUrl = normalizeUrl(siteUrl, configuredSites);
             if (!baseUrl) {
                 return res.status(400).json({ error: '仅允许访问系统配置中的 HTTPS Wikidot 站点' });
             }
@@ -249,7 +252,7 @@ async function handler(req, res) {
                     };
                     if (message) params.text = message;
 
-                    await wikidotAjax(siteUrl, sessionId, params);
+                    await wikidotAjax(siteUrl, sessionId, params, configuredSites);
                     results.push({ userName: app.userName, success: true });
                 } catch (e) {
                     results.push({ userName: app.userName, success: false, error: e.message });

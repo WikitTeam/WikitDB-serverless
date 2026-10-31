@@ -1,10 +1,10 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 const config = require('@wikitdb/shared/config');
 
-export default function SavePage() {
-    const wikis = config.SUPPORT_WIKI || [];
+export default function SavePage({ sites: wikis }) {
     const [site, setSite] = useState('');
     const [page, setPage] = useState('');
     const [title, setTitle] = useState('');
@@ -108,4 +108,8 @@ export default function SavePage() {
             </div>
         </>
     );
+}
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
 }

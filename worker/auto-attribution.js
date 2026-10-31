@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 require('@next/env').loadEnvConfig(path.join(__dirname, '..'), process.env.NODE_ENV !== 'production');
 const prisma = require('@wikitdb/shared/prisma');
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 const { fetchAttributionPage, aggregateAuthorScores, normalizePageKey } = require('./utils/attribution');
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
@@ -117,10 +117,11 @@ async function processSite(siteConfig) {
 
 /** 同步一轮归属资料，隔离站点失败并设置整轮退出码。 */
 async function runAttribution() {
+    const configuredSites = await getSites();
     const start = Date.now();
     let failedSites = 0;
     // 只同步配置了归属资料页的站点。
-    const sites = config.SUPPORT_WIKI.filter(w => w.ATTRIBUTION_PAGE);
+    const sites = configuredSites.filter(w => w.ATTRIBUTION_PAGE);
     logLine(`[归属] 开始执行（${sites.length} 个站点配置了归属资料页）...`);
     for (const siteConfig of sites) {
         try {

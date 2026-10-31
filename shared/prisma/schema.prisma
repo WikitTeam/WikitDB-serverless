@@ -85,6 +85,22 @@ model Image {
   @@map("images")
 }
 
+model Site {
+  id               Int    @id @default(autoincrement())
+  sort_order       Int
+  NAME             String @db.VarChar(100)
+  DESCRIPTION      String @default("")
+  URL              String
+  PARAM            String @unique @db.VarChar(30)
+  WIKIT_ID         String @unique @db.VarChar(80)
+  ImgURL           String @default("")
+  GQL_API          String @default("")
+  AUTHOR_TAG       String @default("")
+  ATTRIBUTION_PAGE String @default("") @db.VarChar(100)
+
+  @@map("sites")
+}
+
 model Setting {
   key       String   @id
   value     String   @db.Text

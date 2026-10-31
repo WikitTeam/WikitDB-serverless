@@ -1,7 +1,8 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GetStaticProps } from 'next';
+import type { GetServerSideProps } from 'next';
+import { getSites } from '@wikitdb/shared/sites';
 const config = require('@wikitdb/shared/config');
 
 type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
@@ -295,9 +296,9 @@ export default function FtmlEditor({ sites }: FtmlEditorProps) {
     );
 }
 
-export const getStaticProps: GetStaticProps<FtmlEditorProps> = () => {
+export const getServerSideProps: GetServerSideProps<FtmlEditorProps> = async () => {
     const previewSites = [
-        ...config.SUPPORT_WIKI,
+        ...await getSites(),
         {
             NAME: '规则怪谈档案馆沙盒',
             PARAM: 'rule-sandbox',

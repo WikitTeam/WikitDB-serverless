@@ -2,7 +2,7 @@ import prisma from '@wikitdb/shared/prisma';
 import { withStaff } from '#utils/withStaff';
 import { decryptPassword } from '#utils/botAccountCrypto';
 import { login, clearLoginCache, sleep, savePage } from '#utils/wikidotStaffActions';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 function parseSites(sites) {
     if (Array.isArray(sites)) return sites.map((s) => String(s).trim()).filter(Boolean);
@@ -120,7 +120,8 @@ async function handler(req, res) {
                     return res.status(403).json({ error: '只能使用职员登记的机器人发送' });
                 }
 
-                const siteConfig = config.SUPPORT_WIKI.find(w => w.PARAM === post.site);
+                const configuredSites = await getSites();
+                const siteConfig = configuredSites.find(w => w.PARAM === post.site);
                 if (!siteConfig) return res.status(400).json({ error: '目标站点配置不存在，无法发送' });
 
                 const baseUrl = siteConfig.URL.replace(/\/$/, '');

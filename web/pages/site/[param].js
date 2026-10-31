@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -134,8 +135,9 @@ const SiteDashboard = ({ siteConfig, recentPages, totalPages, topAuthors }) => {
 };
 
 export async function getServerSideProps(context) {
+    const configuredSites = await getSites();
     const { param } = context.params;
-    const siteConfig = config.SUPPORT_WIKI.find(w => w.PARAM === param);
+    const siteConfig = configuredSites.find(w => w.PARAM === param);
 
     if (!siteConfig) {
         return { notFound: true };

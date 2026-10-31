@@ -1,82 +1,71 @@
 import { withAdmin } from '#utils/withAdmin';
-import { loadSiteConfig, saveSiteConfig, validateSite } from '#utils/siteConfig';
+import { validateSite } from '#utils/siteConfig';
+import { runSerializable } from '#utils/transaction';
+import prisma from '@wikitdb/shared/prisma';
+const { getSites } = require('@wikitdb/shared/sites');
 
-/**
- * 站点管理 API
- * GET    /api/admin/sites          -> 获取站点列表（读磁盘最新配置）
- * POST   /api/admin/sites          -> 添加站点
- * PUT    /api/admin/sites          -> 编辑站点（body 传 { param: 原PARAM, ...站点字段 }）
- * DELETE /api/admin/sites          -> 删除站点（body 或 query 传 { param }）
- */
 async function handler(req, res) {
     try {
         if (req.method === 'GET') {
-            const config = loadSiteConfig();
-            return res.status(200).json({ sites: config.SUPPORT_WIKI });
+            return res.status(200).json({ sites: await getSites() });
+        }
+        if (!['POST', 'PUT', 'DELETE'].includes(req.method)) {
+            return res.status(405).json({ error: 'Method not allowed' });
         }
 
-        if (req.method === 'POST') {
-            const result = validateSite(req.body);
-            if (result.error) return res.status(400).json({ error: result.error });
-
-            const config = loadSiteConfig();
-
-            if (config.SUPPORT_WIKI.some(s => s.PARAM === result.site.PARAM)) {
-                return res.status(400).json({ error: `PARAM "${result.site.PARAM}" 已被使用` });
-            }
-            if (config.SUPPORT_WIKI.some(s => s.WIKIT_ID === result.site.WIKIT_ID)) {
-                return res.status(400).json({ error: `WIKIT_ID "${result.site.WIKIT_ID}" 已被使用` });
-            }
-
-            config.SUPPORT_WIKI.push(result.site);
-            saveSiteConfig(config);
-            return res.status(200).json({ success: true, sites: config.SUPPORT_WIKI });
+        const param = String((req.body && req.body.param) || req.query.param || '').trim();
+        if (req.method === 'PUT' && !param) {
+            return res.status(400).json({ error: '缺少要编辑的站点 PARAM' });
         }
+        const result = req.method === 'DELETE' ? null : validateSite(req.body);
+        if (result?.error) return res.status(400).json({ error: result.error });
 
-        if (req.method === 'PUT') {
-            const param = String((req.body && req.body.param) || req.query.param || '').trim();
-            if (!param) return res.status(400).json({ error: '缺少要编辑的站点 PARAM' });
-
-            const result = validateSite(req.body);
-            if (result.error) return res.status(400).json({ error: result.error });
-
-            const config = loadSiteConfig();
-            const idx = config.SUPPORT_WIKI.findIndex(s => s.PARAM === param);
-            if (idx === -1) return res.status(404).json({ error: '未找到该站点' });
-
-            // 唯一性检查（排除自身）
-            if (config.SUPPORT_WIKI.some((s, i) => i !== idx && s.PARAM === result.site.PARAM)) {
-                return res.status(400).json({ error: `PARAM "${result.site.PARAM}" 已被其他站点使用` });
+        // 重试事务时仅重做数据库操作，提交成功后再发送 HTTP 响应。
+        const response = await runSerializable(prisma, async (tx) => {
+            const sites = await getSites(tx);
+            if (req.method === 'DELETE') {
+                if (sites.length <= 1) {
+                    return { status: 400, body: { error: '至少需要保留一个站点，不能删除全部站点' } };
+                }
+                if (!sites.some(s => s.PARAM === param)) {
+                    return { status: 404, body: { error: '未找到该站点' } };
+                }
+                await tx.site.delete({ where: { PARAM: param } });
+            } else {
+                if (req.method === 'PUT' && !sites.some(s => s.PARAM === param)) {
+                    return { status: 404, body: { error: '未找到该站点' } };
+                }
+                const otherSites = sites.filter(s => req.method === 'POST' || s.PARAM !== param);
+                if (otherSites.some(s => s.PARAM === result.site.PARAM)) {
+                    return { status: 400, body: { error: `PARAM "${result.site.PARAM}" 已被使用` } };
+                }
+                if (otherSites.some(s => s.WIKIT_ID === result.site.WIKIT_ID)) {
+                    return { status: 400, body: { error: `WIKIT_ID "${result.site.WIKIT_ID}" 已被使用` } };
+                }
+                if (req.method === 'POST') {
+                    const last = await tx.site.aggregate({ _max: { sort_order: true } });
+                    await tx.site.create({ data: { ...result.site, sort_order: last._max.sort_order + 1 } });
+                } else {
+                    await tx.site.update({ where: { PARAM: param }, data: result.site });
+                }
             }
-            if (config.SUPPORT_WIKI.some((s, i) => i !== idx && s.WIKIT_ID === result.site.WIKIT_ID)) {
-                return res.status(400).json({ error: `WIKIT_ID "${result.site.WIKIT_ID}" 已被其他站点使用` });
-            }
-
-            config.SUPPORT_WIKI[idx] = result.site;
-            saveSiteConfig(config);
-            return res.status(200).json({ success: true, message: `站点 "${result.site.NAME}" 已更新`, sites: config.SUPPORT_WIKI });
-        }
-
-        if (req.method === 'DELETE') {
-            const param = String((req.body && req.body.param) || req.query.param || '').trim();
-
-            const config = loadSiteConfig();
-            if (config.SUPPORT_WIKI.length <= 1) {
-                return res.status(400).json({ error: '至少需要保留一个站点，不能删除全部站点' });
-            }
-
-            const idx = config.SUPPORT_WIKI.findIndex(s => s.PARAM === param);
-            if (idx === -1) return res.status(404).json({ error: '未找到该站点' });
-
-            config.SUPPORT_WIKI.splice(idx, 1);
-            saveSiteConfig(config);
-            return res.status(200).json({ success: true, sites: config.SUPPORT_WIKI });
-        }
-
-        return res.status(405).json({ error: 'Method not allowed' });
+            const body = { success: true, sites: await getSites(tx) };
+            if (req.method === 'PUT') body.message = `站点 "${result.site.NAME}" 已更新`;
+            return { status: 200, body };
+        });
+        return res.status(response.status).json(response.body);
     } catch (error) {
-        console.error('[sites] 处理失败:', error);
-        return res.status(500).json({ error: '站点管理失败，请检查 wikitdb.config.js 是否可写' });
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'PARAM 或 WIKIT_ID 已被使用' });
+        }
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: '未找到该站点' });
+        }
+        if (error.code === 'P2034') {
+            return res.status(409).json({ error: '站点配置被同时修改，请刷新后重试' });
+        }
+        console.error('[sites] 处理失败:', error.message);
+        return res.status(500).json({ error: error.code === 'SITES_NOT_INITIALIZED' ? error.message : '站点配置读取或保存失败' });
     }
 }
 

@@ -1,73 +1,3 @@
-/**
- * wikitdb.config.js 运行时读写工具
- * 使用 vm 沙箱解析配置文件，避免 Next.js webpack 打包导致的 require 缓存问题，
- * 确保读取到的始终是磁盘上的最新配置。
- */
-
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-
-const CONFIG_FILENAME = 'wikitdb.config.js';
-
-/** 定位网站与 Worker 共用的站点配置文件。 */
-function getConfigPath() {
-    return path.resolve(process.cwd(), '../shared', CONFIG_FILENAME);
-}
-
-/** 从磁盘加载配置（vm 沙箱执行，不污染全局） */
-function loadSiteConfig() {
-    const filePath = getConfigPath();
-    const source = fs.readFileSync(filePath, 'utf8');
-    const sandbox = { module: { exports: {} }, exports: {} };
-    vm.runInNewContext(source, sandbox, { filename: filePath, timeout: 2000 });
-    const cfg = sandbox.module.exports || {};
-    if (!Array.isArray(cfg.SUPPORT_WIKI)) cfg.SUPPORT_WIKI = [];
-    return cfg;
-}
-
-/** 使 Node 侧的 require 缓存失效（对 auto-crawler.js 等独立进程生效） */
-function invalidateConfigCache() {
-    try {
-        const resolved = require.resolve(getConfigPath());
-        if (resolved) delete require.cache[resolved];
-    } catch (e) { /* 打包环境中可能无法解析，忽略 */ }
-}
-
-/** 生成配置文件内容（保留站点模板注释，便于后续手工编辑） */
-function buildConfigFileContent(config) {
-    const lines = [];
-    lines.push('module.exports = {');
-    lines.push(`    SITE_NAME: ${JSON.stringify(config.SITE_NAME || 'WikitDB')},`);
-    lines.push(`    SITE_URL: ${JSON.stringify(config.SITE_URL || '')},`);
-    lines.push(`    SITE_SINCE: ${JSON.stringify(config.SITE_SINCE || '2026')},`);
-    lines.push(`    SITE_AUTHOR: ${JSON.stringify(config.SITE_AUTHOR || 'WikitDB Team')},`);
-    lines.push('    SUPPORT_WIKI: [');
-    lines.push('        /*站点格式');
-    lines.push('        {');
-    lines.push('            NAME: "站点名称",');
-    lines.push('            URL: "站点链接",');
-    lines.push('            ImgURL: "Logo链接",');
-    lines.push('            PARAM: "简写",');
-    lines.push('            WIKIT_ID: "Wikit站点里写的站点名称，这里用于筛选作者的站点页面",');
-    lines.push('            GQL_API: "可选，自定义GraphQL端点，不填则默认 https://wikit.unitreaty.org/apiv1/graphql",');
-    lines.push('            ATTRIBUTION_PAGE: "可选，站点归属资料页面路径（如 attribution-metadata），爬虫抓取其作者归属与分数分配",');
-    lines.push('        },');
-    lines.push('        */');
-    for (const site of config.SUPPORT_WIKI || []) {
-        lines.push(`        ${JSON.stringify(site)},`);
-    }
-    lines.push('    ]');
-    lines.push('};');
-    return lines.join('\n') + '\n';
-}
-
-/** 写回配置文件并刷新缓存 */
-function saveSiteConfig(config) {
-    fs.writeFileSync(getConfigPath(), buildConfigFileContent(config), 'utf8');
-    invalidateConfigCache();
-}
-
 function isHttpUrl(value) {
     if (!value) return false;
     try {
@@ -82,7 +12,7 @@ function isHttpUrl(value) {
 function validateSite(input) {
     input = input || {};
 
-    const site = {};
+    const site = { DESCRIPTION: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' };
 
     site.NAME = String(input.NAME || '').trim();
     if (!site.NAME) return { error: '站点名称 (NAME) 不能为空' };
@@ -102,6 +32,10 @@ function validateSite(input) {
     }
 
     // 可选字段
+    if (input.DESCRIPTION !== undefined) {
+        if (typeof input.DESCRIPTION !== 'string') return { error: '站点说明必须是文本' };
+        site.DESCRIPTION = input.DESCRIPTION.trim();
+    }
     if (input.ImgURL) {
         const imgUrl = String(input.ImgURL).trim();
         if (!isHttpUrl(imgUrl)) return { error: 'Logo 链接 (ImgURL) 必须是有效的 http(s) 链接' };
@@ -124,11 +58,4 @@ function validateSite(input) {
     return { site };
 }
 
-module.exports = {
-    getConfigPath,
-    loadSiteConfig,
-    saveSiteConfig,
-    validateSite,
-    buildConfigFileContent,
-    invalidateConfigCache,
-};
+module.exports = { validateSite };

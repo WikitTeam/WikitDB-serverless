@@ -8,7 +8,7 @@ import {
 } from '#utils/staffPostDeletion';
 import { decryptPassword } from '#utils/botAccountCrypto';
 const { login, addTag, postAnnouncement, sleep } = require('#utils/wikidotStaffActions');
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -30,7 +30,8 @@ async function handler(req, res) {
     } = req.body || {};
 
     if (!site) return res.status(400).json({ error: '请选择站点' });
-    const siteConfig = config.SUPPORT_WIKI.find((w) => w.PARAM === site);
+    const configuredSites = await getSites();
+    const siteConfig = configuredSites.find((w) => w.PARAM === site);
     if (!siteConfig) return res.status(400).json({ error: '未找到该站点配置' });
 
     if (!Array.isArray(pages) || pages.length === 0) {

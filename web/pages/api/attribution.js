@@ -1,6 +1,6 @@
 import prisma from '@wikitdb/shared/prisma';
 import { withLogging } from '#utils/logRequest';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 /**
  * 作者归属与分数分配 API
@@ -15,7 +15,8 @@ async function handler(req, res) {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 100, 1), 500);
 
-    const siteConfig = config.SUPPORT_WIKI.find(w => w.PARAM === site);
+    const configuredSites = await getSites();
+    const siteConfig = configuredSites.find(w => w.PARAM === site);
     if (!siteConfig) return res.status(400).json({ error: '未找到该站点配置' });
 
     try {

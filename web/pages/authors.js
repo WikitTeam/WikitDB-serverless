@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -81,7 +82,7 @@ const RankBadge = ({ rank }) => {
     );
 };
 
-const AuthorProfile = () => {
+const AuthorProfile = ({ sites: configuredSites }) => {
     const router = useRouter();
     const { name, search } = router.query;
 
@@ -299,7 +300,7 @@ const AuthorProfile = () => {
                                     <GroupTitle icon="fa-server">站点数据分布</GroupTitle>
                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                         {data.siteStats.map((site, index) => {
-                                            const siteConfig = config.SUPPORT_WIKI.find(w => w.WIKIT_ID === site.wiki || w.NAME === site.wiki);
+                                            const siteConfig = configuredSites.find(w => w.WIKIT_ID === site.wiki || w.NAME === site.wiki);
                                             const siteName = siteConfig ? siteConfig.NAME : site.wiki;
                                             return (
                                                 <div key={index} className="rounded-lg border border-line bg-panel p-4">
@@ -398,7 +399,7 @@ const AuthorProfile = () => {
                                                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                                                         : 'bg-red-500/10 text-red-600 dark:text-red-500';
                                                 const timeStr = vote.time ? new Date(vote.time).toLocaleDateString('zh-CN') : '';
-                                                const siteConfig = config.SUPPORT_WIKI.find(w => w.WIKIT_ID === vote.wiki);
+                                                const siteConfig = configuredSites.find(w => w.WIKIT_ID === vote.wiki);
                                                 const siteParam = siteConfig ? siteConfig.PARAM : vote.wiki;
                                                 return (
                                                     <li key={idx} className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-sunken">
@@ -438,7 +439,7 @@ const AuthorProfile = () => {
                                         >
                                             <option value="all">全站总览</option>
                                             {Object.entries(siteCounts).map(([wikiId, count]) => {
-                                                const siteConfig = config.SUPPORT_WIKI.find(w => w.WIKIT_ID === wikiId || (w.URL && w.URL.includes(wikiId)));
+                                                const siteConfig = configuredSites.find(w => w.WIKIT_ID === wikiId || (w.URL && w.URL.includes(wikiId)));
                                                 const siteName = siteConfig ? siteConfig.NAME : wikiId;
                                                 return (
                                                     <option key={wikiId} value={wikiId}>
@@ -456,7 +457,7 @@ const AuthorProfile = () => {
                                 {displayedPages.length > 0 ? (
                                     <ul className="divide-y divide-line">
                                         {displayedPages.map((page, index) => {
-                                            const siteConfig = config.SUPPORT_WIKI.find(w => w.WIKIT_ID === page.wiki || (w.URL && w.URL.includes(page.wiki)));
+                                            const siteConfig = configuredSites.find(w => w.WIKIT_ID === page.wiki || (w.URL && w.URL.includes(page.wiki)));
                                             const siteParam = siteConfig ? siteConfig.PARAM : page.wiki;
 
                                             const dateStr = page.created_at && page.created_at.includes('T')
@@ -519,7 +520,7 @@ const AuthorProfile = () => {
                                     全站总排行
                                 </button>
 
-                                {config.SUPPORT_WIKI.map((site) => {
+                                {configuredSites.map((site) => {
                                     const active = activeTab === site.PARAM;
                                     return (
                                         <button
@@ -665,3 +666,7 @@ const AuthorProfile = () => {
 };
 
 export default AuthorProfile;
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
+}

@@ -5,7 +5,7 @@ const https = require('https');
 const path = require('path');
 require('@next/env').loadEnvConfig(path.join(__dirname, '..'), process.env.NODE_ENV !== 'production');
 const prisma = require('@wikitdb/shared/prisma');
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 const fs = require('fs');
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
@@ -113,6 +113,7 @@ async function getBotCookie() {
 /** 执行一轮站点抓取，记录最终失败并持久化结束状态。 */
 async function runCrawler() {
     try {
+        const configuredSites = await getSites();
         const botCookie = await getBotCookie();
         const baseHeaders = { 'User-Agent': 'Mozilla/5.0' };
         if (botCookie) baseHeaders['Cookie'] = botCookie;
@@ -124,12 +125,12 @@ async function runCrawler() {
             finishedAt: null,
             currentSite: null,
             currentStage: '',
-            overall: { totalSites: config.SUPPORT_WIKI.length, doneSites: 0 },
-            sites: config.SUPPORT_WIKI.map(buildSiteStatus),
+            overall: { totalSites: configuredSites.length, doneSites: 0 },
+            sites: configuredSites.map(buildSiteStatus),
             lastRun: crawlStatus.lastRun
         };
         await persistCrawlStatus();
-        for (const siteConfig of config.SUPPORT_WIKI) {
+        for (const siteConfig of configuredSites) {
             const wikiParam = siteConfig.PARAM;
             const actualWikiName = siteConfig.URL.replace(/^https?:\/\//i, '').split('.')[0];
             const baseUrl = siteConfig.URL.replace(/\/$/, '');

@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -20,7 +21,7 @@ const FILTERS = [
     { value: '', label: '全部' },
 ];
 
-export default function StaffPanel() {
+export default function StaffPanel({ sites: configuredSites }) {
     const [authChecked, setAuthChecked] = useState(false);
     const [allowed, setAllowed] = useState(false);
     const [filter, setFilter] = useState('pending');
@@ -35,7 +36,7 @@ export default function StaffPanel() {
     const [rejectNote, setRejectNote] = useState({});
 
     const siteName = (param) => {
-        const w = config.SUPPORT_WIKI.find(x => x.PARAM === param);
+        const w = configuredSites.find(x => x.PARAM === param);
         return w ? w.NAME : param;
     };
 
@@ -320,4 +321,8 @@ export default function StaffPanel() {
             </div>
         </>
     );
+}
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
 }

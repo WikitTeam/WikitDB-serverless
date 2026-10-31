@@ -1,4 +1,4 @@
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 const { getGraphQLEndpoint } = require('#utils/graphql');
 const { cached } = require('#utils/cache');
 const { singleFlight } = require('#utils/singleFlight');
@@ -10,7 +10,8 @@ async function handler(req, res) {
 
     if (!site) return res.status(400).json({ error: '缺少 site 参数' });
 
-    const wikiConfig = config.SUPPORT_WIKI.find(w => w.PARAM === site);
+    const configuredSites = await getSites();
+    const wikiConfig = configuredSites.find(w => w.PARAM === site);
     if (!wikiConfig) return res.status(404).json({ error: '未找到该站点配置' });
 
     let actualWikiName = '';

@@ -129,7 +129,7 @@ function parseForumRss(xml) {
 
 /**
  * 抓取页面单页讨论的 RSS
- * @param {{URL: string}} siteConfig wikitdb.config.js 中的站点配置
+ * @param {{URL: string}} siteConfig 数据库中的站点配置
  * @param {string} pageName 页面名（如 "major" 或 "scp-001"）
  * @returns {Promise<{hasDiscussion, threadId, threadUrl, rssUrl, rss}>}
  */

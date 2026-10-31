@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -7,16 +8,14 @@ const config = require('@wikitdb/shared/config');
 const { markdownLite } = require('#utils/markdownLite');
 
 // 展示项目介绍和收录站点信息。
-const About = ({ contentHtml }) => {
-    const wikis = config.SUPPORT_WIKI || config.SUPPOST_WIKI || [];
-
+const About = ({ contentHtml, siteCount }) => {
     return (
         <>
             <Head>
                 <title>关于 - {config.SITE_NAME}</title>
                 <meta
                     name="description"
-                    content={`WikitDB 是一个面向 Wikidot 社区的非营利同人项目，收录 ${wikis.length} 个站点，提供页面归档、作者追踪、虚拟股市和文章讨论等功能。`}
+                    content={`WikitDB 是一个面向 Wikidot 社区的非营利同人项目，收录 ${siteCount} 个站点，提供页面归档、作者追踪、虚拟股市和文章讨论等功能。`}
                 />
                 <meta property="og:title" content={`关于 ${config.SITE_NAME}`} />
                 <meta
@@ -94,7 +93,8 @@ const About = ({ contentHtml }) => {
     );
 };
 
-export async function getStaticProps() {
+export async function getServerSideProps() {
+    const wikis = await getSites();
     const mdPath = path.join(process.cwd(), 'content', 'about.md');
     let raw = '';
     try {
@@ -104,11 +104,14 @@ export async function getStaticProps() {
     }
 
     // 运行时占位符替换：{WIKIS_COUNT} -> 实际数量
-    const wikis = config.SUPPORT_WIKI || config.SUPPOST_WIKI || [];
     raw = raw.replace(/\{WIKIS_COUNT\}/g, String(wikis.length));
 
+    // 站点名称和说明中的分隔符和换行不能改变 Markdown 表格结构。
+    const siteRows = wikis.map(wiki => `| ${[wiki.NAME, wiki.PARAM, wiki.DESCRIPTION].map(value => value.replace(/\|/g, '｜').replace(/[\r\n]/g, ' ')).join(' | ')} |`);
+    raw = raw.replace('{WIKIS_TABLE}', () => ['| 站点 | 简写 | 说明 |', '|------|------|------|', ...siteRows].join('\n'));
+
     const contentHtml = markdownLite(raw);
-    return { props: { contentHtml } };
+    return { props: { contentHtml, siteCount: wikis.length } };
 }
 
 export default About;

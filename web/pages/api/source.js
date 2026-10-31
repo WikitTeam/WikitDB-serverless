@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 const { getGraphQLEndpoint } = require('#utils/graphql');
 
 export default async function handler(req, res) {
@@ -19,7 +19,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid page name' });
     }
 
-    const wikiConfig = config.SUPPORT_WIKI.find(w => w.PARAM === site);
+    const configuredSites = await getSites();
+    const wikiConfig = configuredSites.find(w => w.PARAM === site);
     if (!wikiConfig) {
         return res.status(404).json({ error: '未找到该站点配置' });
     }

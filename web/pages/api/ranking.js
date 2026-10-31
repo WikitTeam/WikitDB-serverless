@@ -1,5 +1,5 @@
 import prisma from '@wikitdb/shared/prisma';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 const { DEFAULT_GQL_ENDPOINT, getGraphQLEndpoint } = require('#utils/graphql');
 const { cached } = require('#utils/cache');
 const { singleFlight } = require('#utils/singleFlight');
@@ -14,6 +14,9 @@ async function handler(req, res) {
     const { site = 'global' } = req.query;
 
     try {
+        const configuredSites = await getSites();
+        const wikiConfig = configuredSites.find(w => w.PARAM === site);
+        if (site !== 'global' && !wikiConfig) throw new Error('NOT_FOUND');
         // 优先使用站点归属资料分数生成排行榜（配置了归属页的站点）
         let attributionRanking = null;
         try {
@@ -88,9 +91,6 @@ async function handler(req, res) {
                 if (site === 'global') {
                     return fetchGraphQL(`query { authorRanking(by: RATING) { rank name value } }`);
                 }
-
-                const wikiConfig = config.SUPPORT_WIKI.find(w => w.PARAM === site);
-                if (!wikiConfig) throw new Error('NOT_FOUND');
 
                 let actualWikiName = '';
                 try {

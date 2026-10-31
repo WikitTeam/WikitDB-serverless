@@ -6,7 +6,7 @@ const { DEFAULT_GQL_ENDPOINT } = require('#utils/graphql');
 const { cached } = require('#utils/cache');
 const { singleFlight } = require('#utils/singleFlight');
 const { wikitLimiter } = require('#utils/rateLimiter');
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 // avatar.php 只认 userid（account= 已失效，一律 404）。
 // 当 Wikit 未返回 author_id 时，从用户资料页 user:info/<unix名> 抓真实头像地址；
@@ -34,6 +34,7 @@ async function handler(req, res) {
     }
 
     try {
+        const configuredSites = await getSites();
         const queryName = name.trim();
         const cacheKey = `author:${queryName.toLowerCase()}`;
 
@@ -146,7 +147,7 @@ async function handler(req, res) {
                         const scores = s.value; // @wikitdb/shared/prisma 已自动解析为对象
                         const entry = scores && scores[queryName.toLowerCase()];
                         if (entry) {
-                            const siteCfg = config.SUPPORT_WIKI.find(w => w.PARAM === siteParam);
+                            const siteCfg = configuredSites.find(w => w.PARAM === siteParam);
                             sites.push({
                                 site: siteParam,
                                 siteName: siteCfg ? siteCfg.NAME : siteParam,

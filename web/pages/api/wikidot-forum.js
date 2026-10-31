@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { sanitizeRichHtml } from '#utils/htmlSanitizer';
 
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 let botCookieCache = null;
 
@@ -51,6 +51,10 @@ export default async function handler(req, res) {
     const pageNum = Math.min(Math.max(parseInt(p, 10) || 1, 1), 1000);
 
     try {
+        const configuredSites = await getSites();
+        const siteConfig = configuredSites.find(s => s.PARAM === wiki);
+        if (!siteConfig) return res.status(404).json({ error: 'Site config not found' });
+
         const cacheKey = `forum_v11:${wiki}:${pageId}:p${pageNum}`;
         
         const record = await prisma.setting.findUnique({ where: { key: cacheKey } });
@@ -65,9 +69,6 @@ export default async function handler(req, res) {
                 }
             } catch (e) {}
         }
-
-        const siteConfig = config.SUPPORT_WIKI.find(s => s.PARAM === wiki);
-        if (!siteConfig) return res.status(404).json({ error: 'Site config not found' });
 
         const baseUrl = siteConfig.URL.replace(/\/$/, '');
         const pageUrl = `${baseUrl}/${pageId}`;

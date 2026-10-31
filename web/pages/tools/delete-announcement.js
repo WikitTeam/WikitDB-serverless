@@ -1,11 +1,11 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 const config = require('@wikitdb/shared/config');
 const { getGraphQLEndpoint } = require('#utils/graphql');
 
-const DeleteAnnouncement = () => {
-    const wikis = config.SUPPORT_WIKI || config.SUPPOST_WIKI || [];
+const DeleteAnnouncement = ({ sites: wikis }) => {
     
     const [selectedSite, setSelectedSite] = useState(wikis.length > 0 ? wikis[0].PARAM : '');
     const [tagInput, setTagInput] = useState('待删除');
@@ -635,3 +635,7 @@ const DeleteAnnouncement = () => {
 };
 
 export default DeleteAnnouncement;
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
+}

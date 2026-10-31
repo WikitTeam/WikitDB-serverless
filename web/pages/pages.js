@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -27,8 +28,8 @@ const PagerButton = ({ icon, label, disabled, onClick }) => (
     </button>
 );
 
-const Pages = () => {
-    const [selectedSite, setSelectedSite] = useState(config.SUPPORT_WIKI[0]?.PARAM);
+const Pages = ({ sites: configuredSites }) => {
+    const [selectedSite, setSelectedSite] = useState(configuredSites[0]?.PARAM);
     const [searchQuery, setSearchQuery] = useState('');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ const Pages = () => {
     // 控制当前页码
     const [page, setPage] = useState(1);
 
-    const currentWiki = config.SUPPORT_WIKI.find(w => w.PARAM === selectedSite);
+    const currentWiki = configuredSites.find(w => w.PARAM === selectedSite);
 
     useEffect(() => {
         setSearchQuery('');
@@ -116,12 +117,12 @@ const Pages = () => {
                             <h1 className="text-3xl font-bold tracking-tight text-fg">页面检索</h1>
                             <p className="mt-2 text-sm text-fg-3">检索与浏览各分站已收录的页面数据。</p>
                         </div>
-                        <span className="hidden sm:block font-mono text-xs text-fg-3">{config.SUPPORT_WIKI.length} WIKIS</span>
+                        <span className="hidden sm:block font-mono text-xs text-fg-3">{configuredSites.length} WIKIS</span>
                     </header>
 
                     {/* 站点选择：紧凑 chip 组 */}
                     <div className="flex flex-wrap gap-2">
-                        {config.SUPPORT_WIKI.map((wiki) => {
+                        {configuredSites.map((wiki) => {
                             const active = selectedSite === wiki.PARAM;
                             return (
                                 <button
@@ -318,3 +319,7 @@ const Pages = () => {
 };
 
 export default Pages;
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
+}

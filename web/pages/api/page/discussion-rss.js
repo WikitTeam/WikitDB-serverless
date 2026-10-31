@@ -1,7 +1,7 @@
 import prisma from '@wikitdb/shared/prisma';
 import { withLogging } from '#utils/logRequest';
 import { fetchPageDiscussionRss } from '#utils/wikidotPageRss';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 // RSS 结果缓存 30 分钟
 const CACHE_TTL_MS = 30 * 60 * 1000;
@@ -12,7 +12,8 @@ async function handler(req, res) {
     const { wiki, page } = req.query;
     if (!wiki || !page) return res.status(400).json({ error: '缺少 wiki / page 参数' });
 
-    const siteConfig = config.SUPPORT_WIKI.find(s => s.PARAM === wiki);
+    const configuredSites = await getSites();
+    const siteConfig = configuredSites.find(s => s.PARAM === wiki);
     if (!siteConfig) return res.status(404).json({ error: '未找到该站点配置' });
 
     const cacheKey = `page-rss:v2:${wiki}:${page}`;

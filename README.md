@@ -72,9 +72,15 @@ npm run prisma:generate
 npm run prisma:push
 ```
 
-### 5. 配置收录站点
+### 5. 导入收录站点
 
-编辑 [`shared/wikitdb.config.js`](shared/wikitdb.config.js) 中的 `SUPPORT_WIKI` 数组，按注释模板添加或删除站点。每个站点对象包含 `NAME` / `URL` / `ImgURL` / `PARAM` / `WIKIT_ID` 等字段。
+首次使用时，在仓库根目录执行：
+
+```bash
+node web/scripts/import-sites.js
+```
+
+脚本将初始站点列表导入 `sites` 表，表中已有数据时跳过。后续在管理后台的「站点管理」中增删改站点。
 
 ### 6. 启动开发服务器
 
@@ -101,8 +107,6 @@ npm start
 npm run worker
 ```
 
-主爬虫依次处理已配置站点，完成后退出。个别页面或站点失败后继续处理其他任务；清单和页面请求最多尝试三次。
-
 归属同步使用独立脚本，执行一轮归属资料和作者评分同步：
 
 ```bash
@@ -115,9 +119,9 @@ node worker/auto-attribution.js
 node worker/backup.js
 ```
 
-备份覆盖 `shared/wikitdb.config.js` 中配置的站点，归档写入仓库根目录的 `wikit_data/`，通过 `--keep-removed` 保留从 sitemap 消失的页面。
+备份已配置站点，归档保存到仓库根目录的 `wikit_data/`，并保留已从原站点移除的页面。
 
-三个入口均在单轮任务结束后退出，成功返回 0，存在最终失败时返回 1。任务状态输出到控制台和仓库根目录的 `crawler.log`，wikit 子进程输出直接转到控制台。
+任务完成后退出，成功返回 0，失败返回 1。任务状态可在控制台和仓库根目录的 `crawler.log` 中查看。
 
 ## 项目结构
 
@@ -131,7 +135,7 @@ WikitDB-Serverless/
 │   ├── content/            # 静态内容
 │   ├── public/             # 静态资源及 FTML WASM
 │   ├── styles/             # 样式
-│   ├── scripts/            # 开发、SMTP 和 FTML 脚本
+│   ├── scripts/            # 站点导入、开发、SMTP 和 FTML 脚本
 │   ├── tests/              # 单元测试
 │   ├── middleware.js       # 全局限速 / Honeypot
 │   └── next.config.js      # Next.js 配置及安全头
@@ -143,7 +147,8 @@ WikitDB-Serverless/
 ├── shared/
 │   ├── prisma.js          # Prisma Client 及 Setting 扩展
 │   ├── prisma/            # 数据库 schema
-│   └── wikitdb.config.js  # 站点列表与全局配置
+│   ├── sites.js           # 站点配置读取
+│   └── wikitdb.config.js  # 网站展示配置
 ├── .github/workflows/      # CI
 ├── .env.example            # 本地环境配置模板
 ├── package.json            # workspace 定义及根目录命令
@@ -166,29 +171,24 @@ WikitDB-Serverless/
 | `npm run prisma:push` | 同步 schema 到数据库 |
 | `npm run prisma:studio` | 打开 Prisma Studio 可视化管理数据库 |
 
-以上命令均在仓库根目录运行。依赖由 npm workspaces 统一安装，网站构建产物位于 `web/.next/`。
+以上命令均在仓库根目录运行。
 
 ## TypeScript 渐进式迁移
 
-项目支持渐进式采用 TypeScript，**不改变 Pages Router 结构**，也不影响现有 JavaScript 路由。规则如下：
-
 - 新增或大改的模块优先使用 `.ts` / `.tsx`
 - 现有 JavaScript 可按区域逐步迁移
-- `others/` 下的参考仓库不参与应用类型检查
 - 提交前执行 `npm run typecheck` 确保无类型错误
 
 ## 安全说明
 
 - **`SITE_ORIGIN`** 必须设置为公网 HTTPS origin
 - **`TRUST_PROXY=true`** 仅在请求总是经过可信反代（反代会覆写转发头）时开启
-- **管理员权限**仅由数据库 `User.isAdmin` 字段控制，无基于用户名的管理员兜底
+- **管理员权限**由数据库 `User.isAdmin` 字段控制
 - **运行时数据与凭据**不得提交至 `data/` 或环境文件
-- **Wikidot 管理代理工具**仅接受 `shared/wikitdb.config.js` 中声明的 HTTPS origin
+- **Wikidot 管理代理工具**仅接受数据库站点配置中声明的 HTTPS origin
 - **CSRF 防护**：写操作校验 Origin / Referer
 - **限速**：IP + Key 双层（内存 + DB 持久化），middleware 层全局生效
 - **Honeypot**：对常见攻击路径返回 800-2000ms 随机延迟并记录行为日志
-
-数据库 schema 包含持久化的注册验证记录和悬赏领取幂等性约束。从旧版本升级时，**必须在提供服务前执行 `npm run prisma:push`**。
 
 ## 开发规范
 
@@ -196,7 +196,6 @@ WikitDB-Serverless/
 - 修改后端逻辑前先用 `npm run typecheck` 与 `npm test` 验证
 - 新增 API 路由必须用 `withAuth` / `withAdmin` 包装（按需），并通过 CSRF Origin 校验
 - 输出 HTML 前必须经过 `sanitizeRichHtml` 消毒
-- 静态资源 URL 已带 hash，可放心设置长期缓存
 - 编辑说明使用中文书写
 
 ## 贡献

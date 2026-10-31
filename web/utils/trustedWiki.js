@@ -1,5 +1,3 @@
-const config = require('@wikitdb/shared/config');
-
 function normalizeOrigin(value) {
     try {
         const url = new URL(value);
@@ -11,11 +9,11 @@ function normalizeOrigin(value) {
     }
 }
 
-export function getTrustedWikiByUrl(value) {
+export function getTrustedWikiByUrl(value, sites) {
     const requestedOrigin = normalizeOrigin(value);
     if (!requestedOrigin) return null;
 
-    return config.SUPPORT_WIKI.find((wiki) => (
+    return sites.find((wiki) => (
         normalizeOrigin(wiki.URL) === requestedOrigin
     )) || null;
 }

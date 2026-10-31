@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 import React, { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -10,8 +11,7 @@ const {
 } = require('#utils/staffPostDeletion');
 
 // 管理机器人账号并预览、手动发布删除公告。
-const StaffPostDeletion = () => {
-    const wikis = config.SUPPORT_WIKI || [];
+const StaffPostDeletion = ({ sites: wikis }) => {
     // 登录保护：该工具要求登录后使用（后端 API 亦已用 withAuth 强制校验）
     const [authChecked, setAuthChecked] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -682,3 +682,6 @@ const StaffPostDeletion = () => {
 
 export default StaffPostDeletion;
 
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
+}

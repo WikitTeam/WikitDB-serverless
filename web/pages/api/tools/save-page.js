@@ -1,6 +1,6 @@
 import prisma from '@wikitdb/shared/prisma';
 import { withAuth } from '#utils/withAuth';
-const config = require('@wikitdb/shared/config');
+const { getSites } = require('@wikitdb/shared/sites');
 
 async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -13,7 +13,8 @@ async function handler(req, res) {
     if (!page || !String(page).trim()) return res.status(400).json({ error: '请填写页面名称' });
     if (!source || !String(source).trim()) return res.status(400).json({ error: '页面内容不能为空' });
 
-    const wikiConfig = config.SUPPORT_WIKI.find(w => w.PARAM === site);
+    const configuredSites = await getSites();
+    const wikiConfig = configuredSites.find(w => w.PARAM === site);
     if (!wikiConfig) return res.status(400).json({ error: '未找到对应站点配置' });
 
     const pageName = String(page).trim().slice(0, 200);

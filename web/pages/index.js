@@ -1,3 +1,4 @@
+import { getSites } from '@wikitdb/shared/sites';
 // pages/index.js
 import React, { useState } from 'react';
 import Head from 'next/head';
@@ -88,9 +89,8 @@ const splitMarqueeRows = (wikis) => {
     return { row1: wikis.slice(0, half), row2: wikis.slice(half) };
 };
 
-const Home = () => {
+const Home = ({ sites: wikis }) => {
     const router = useRouter();
-    const wikis = config.SUPPORT_WIKI || config.SUPPOST_WIKI || [];
     const [q, setQ] = useState('');
     // 移动端/无 hover 设备：点击哪一块展开完整内容（-1 表示全部收起）
     const [openFeature, setOpenFeature] = useState(-1);
@@ -759,3 +759,7 @@ const Home = () => {
 Home.fullWidth = true;
 
 export default Home;
+
+export async function getServerSideProps() {
+    return { props: { sites: await getSites() } };
+}

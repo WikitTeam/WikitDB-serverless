@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     "./prisma": "./prisma.js",
-    "./config": "./wikitdb.config.js"
+    "./config": "./wikitdb.config.js",
+    "./sites": "./sites.js"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0"

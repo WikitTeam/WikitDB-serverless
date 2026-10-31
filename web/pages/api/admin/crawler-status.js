@@ -1,6 +1,6 @@
 import prisma from '@wikitdb/shared/prisma';
 import { withAdmin } from '#utils/withAdmin';
-import { loadSiteConfig } from '#utils/siteConfig';
+const { getSites } = require('@wikitdb/shared/sites');
 
 /**
  * 爬虫状态 API
@@ -18,12 +18,7 @@ async function handler(req, res) {
             try { status = JSON.parse(status); } catch (e) { status = null; }
         }
 
-        let configuredSites = [];
-        try {
-            configuredSites = (loadSiteConfig().SUPPORT_WIKI) || [];
-        } catch (e) {
-            configuredSites = [];
-        }
+        const configuredSites = await getSites();
 
         const recorded = (status && Array.isArray(status.sites)) ? status.sites : [];
 

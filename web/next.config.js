@@ -15,9 +15,6 @@ const isDev = process.env.NODE_ENV !== 'production';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     outputFileTracingRoot: path.join(__dirname, '..'),
-    outputFileTracingIncludes: {
-        '/api/admin/sites': ['../shared/wikitdb.config.js'],
-    },
     async rewrites() {
         return [
             // Honeypot traps for common attack paths

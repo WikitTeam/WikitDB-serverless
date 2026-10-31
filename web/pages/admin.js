@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 
-const config = require('@wikitdb/shared/config');
-
 function KpiTile({ label, value }) {
     return (
         <div className="rounded-lg border border-line bg-panel p-5 transition-all hover:border-line-strong hover:shadow-md">
@@ -43,7 +41,7 @@ export default function AdminDashboard() {
     const [honeypotLogs, setHoneypotLogs] = useState([]);
     const [overviewStats, setOverviewStats] = useState(null);
     const [sites, setSites] = useState([]);
-    const [siteForm, setSiteForm] = useState({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
+    const [siteForm, setSiteForm] = useState({ NAME: '', DESCRIPTION: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
     const [siteMsg, setSiteMsg] = useState(null);
     const [savingSite, setSavingSite] = useState(false);
     const [editingSiteParam, setEditingSiteParam] = useState(null);
@@ -106,8 +104,8 @@ export default function AdminDashboard() {
             fetch('/api/admin/access-logs?limit=100', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { logs: [] }),
             fetch('/api/admin/honeypot-logs?limit=200', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { logs: [] }),
             fetch('/api/admin/overview', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : null),
-            fetch('/api/admin/sites', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { sites: [] }),
-            fetch('/api/admin/crawler-status', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { sites: [] }),
+            fetch('/api/admin/sites', { credentials: 'include', headers: authHeaders() }).then(r => r.json()),
+            fetch('/api/admin/crawler-status', { credentials: 'include', headers: authHeaders() }).then(r => r.json()),
             fetch('/api/admin/file-logs?file=crawler&lines=800', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { lines: [], totalLines: 0 }),
         ]).then(([uData, lData, qData, aData, hData, oData, siteData, crawlerData, fileLogData]) => {
             setUsers(uData.users || []);
@@ -116,9 +114,14 @@ export default function AdminDashboard() {
             setAccessLogs(aData.logs || []);
             setHoneypotLogs(hData.logs || []);
             if (oData) setOverviewStats(oData);
-            setSites(siteData.sites || []);
-            setCrawlerStatus(crawlerData.status || null);
-            setCrawlerSites(crawlerData.sites || []);
+            if (siteData.error) setSiteMsg({ type: 'error', text: siteData.error });
+            else setSites(siteData.sites);
+            if (crawlerData.error) {
+                if (!siteData.error) setSiteMsg({ type: 'error', text: crawlerData.error });
+            } else {
+                setCrawlerStatus(crawlerData.status || null);
+                setCrawlerSites(crawlerData.sites);
+            }
             if (fileLogData && Array.isArray(fileLogData.lines)) setFileLogs(fileLogData);
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,7 +171,9 @@ export default function AdminDashboard() {
     const refreshLogs = () => api('/api/admin/logs?limit=50').then(d => setLogs(d.logs || []));
     const refreshAccessLogs = () => api('/api/admin/access-logs?limit=100').then(d => setAccessLogs(d.logs || []));
     const refreshHoneypot = () => api('/api/admin/honeypot-logs?limit=200').then(d => setHoneypotLogs(d.logs || []));
-    const refreshSites = () => api('/api/admin/sites').then(d => setSites(d.sites || []));
+    const refreshSites = () => api('/api/admin/sites')
+        .then(d => { setSites(d.sites); setSiteMsg(null); })
+        .catch(e => setSiteMsg({ type: 'error', text: e.error || '读取站点配置失败' }));
     const refreshCrawler = () => {
         setCrawlerLoading(true);
         return api('/api/admin/crawler-status')
@@ -199,9 +204,9 @@ export default function AdminDashboard() {
                 body: JSON.stringify(isEdit ? { param: editingSiteParam, ...siteForm } : siteForm)
             });
             setSites(d.sites || []);
-            setSiteMsg({ type: 'ok', text: isEdit ? (d.message || '站点已更新') : '站点已添加，配置已写入 wikitdb.config.js' });
+            setSiteMsg({ type: 'ok', text: isEdit ? (d.message || '站点已更新') : '站点已添加' });
             setEditingSiteParam(null);
-            setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
+            setSiteForm({ NAME: '', DESCRIPTION: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
         } catch (e) {
             setSiteMsg({ type: 'error', text: e.error || (editingSiteParam ? '更新站点失败' : '添加站点失败') });
         } finally {
@@ -214,6 +219,7 @@ export default function AdminDashboard() {
         setEditingSiteParam(site.PARAM);
         setSiteForm({
             NAME: site.NAME || '',
+            DESCRIPTION: site.DESCRIPTION,
             URL: site.URL || '',
             PARAM: site.PARAM || '',
             WIKIT_ID: site.WIKIT_ID || '',
@@ -229,12 +235,12 @@ export default function AdminDashboard() {
     // 退出站点编辑并清空表单与提示。
     const handleCancelEdit = () => {
         setEditingSiteParam(null);
-        setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
+        setSiteForm({ NAME: '', DESCRIPTION: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
         setSiteMsg(null);
     };
 
     const handleDeleteSite = async (param) => {
-        if (!confirm(`确定删除站点 "${param}"？此操作会立即修改 wikitdb.config.js。`)) return;
+        if (!confirm(`确定删除站点 "${param}"？此操作会删除该站点配置。`)) return;
         try {
             const d = await api('/api/admin/sites', { method: 'DELETE', body: JSON.stringify({ param }) });
             setSites(d.sites || []);
@@ -429,7 +435,7 @@ export default function AdminDashboard() {
                     {activeTab === 'sites' && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">收录站点管理（写入 wikitdb.config.js）</div>
+                                <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">收录站点管理</div>
                                 <button onClick={refreshSites} className={btnGhost}>刷新</button>
                             </div>
 
@@ -445,6 +451,7 @@ export default function AdminDashboard() {
                                         <thead className={tableTheadCls}>
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">站点</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">说明</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">链接</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">PARAM</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">WIKIT_ID</th>
@@ -462,6 +469,7 @@ export default function AdminDashboard() {
                                                             <span>{site.NAME}</span>
                                                         </div>
                                                     </td>
+                                                    <td className="px-4 py-2.5 text-sm text-fg-2">{site.DESCRIPTION}</td>
                                                     <td className="px-4 py-2.5 text-xs text-accent max-w-[240px] truncate">
                                                         <a href={site.URL} target="_blank" rel="noreferrer" className="hover:underline">{site.URL}</a>
                                                     </td>
@@ -486,6 +494,7 @@ export default function AdminDashboard() {
                                 <div className="text-sm font-medium text-fg-2">{editingSiteParam ? `编辑站点：${editingSiteParam}` : '添加站点'}</div>
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <input value={siteForm.NAME} onChange={e => setSiteForm(p => ({ ...p, NAME: e.target.value }))} placeholder="站点名称 *（如 深林文学部）" className={inputLgCls} />
+                                    <input value={siteForm.DESCRIPTION} onChange={e => setSiteForm(p => ({ ...p, DESCRIPTION: e.target.value }))} placeholder="站点说明（可选，如 文学创作导向）" aria-label="站点说明" className={inputLgCls} />
                                     <input value={siteForm.URL} onChange={e => setSiteForm(p => ({ ...p, URL: e.target.value }))} placeholder="站点 URL *（如 https://xxx.wikidot.com/）" className={inputLgCls} />
                                     <input value={siteForm.PARAM} onChange={e => setSiteForm(p => ({ ...p, PARAM: e.target.value }))} placeholder="PARAM 简写 *（如 dfc）" className={inputLgCls} />
                                     <input value={siteForm.WIKIT_ID} onChange={e => setSiteForm(p => ({ ...p, WIKIT_ID: e.target.value }))} placeholder="WIKIT_ID *（Wikit 站点名）" className={inputLgCls} />
@@ -498,7 +507,7 @@ export default function AdminDashboard() {
                                     <button onClick={handleAddSite} disabled={savingSite} className={btnPrimary + ' disabled:opacity-50'}>{savingSite ? '保存中...' : (editingSiteParam ? '保存修改' : '添加站点')}</button>
                                     {editingSiteParam && <button onClick={handleCancelEdit} className={btnGhost}>取消编辑</button>}
                                 </div>
-                                <div className="text-xs text-fg-3">提示：站点变更会立即写入 wikitdb.config.js。已构建的静态页面与正在运行的爬虫进程（npm run worker）需重启后才会使用新的站点列表。</div>
+                                <div className="text-xs text-fg-3">站点变更保存到数据库。网站刷新后使用新配置，Worker 在下一轮启动时读取。</div>
                             </div>
                         </div>
                     )}
@@ -634,7 +643,7 @@ export default function AdminDashboard() {
                                         <span className="ml-2 text-xs text-fg-3">选择其负责的站点（可多选）</span>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {config.SUPPORT_WIKI.map(w => (
+                                        {sites.map(w => (
                                             <button key={w.PARAM} onClick={() => setStaffEditSites(p => p.includes(w.PARAM) ? p.filter(x => x !== w.PARAM) : [...p, w.PARAM])}
                                                 className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                                                     staffEditSites.includes(w.PARAM)
