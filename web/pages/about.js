@@ -6,6 +6,7 @@ import path from 'path';
 const config = require('@wikitdb/shared/config');
 const { markdownLite } = require('#utils/markdownLite');
 
+// 展示项目介绍和收录站点信息。
 const About = ({ contentHtml }) => {
     const wikis = config.SUPPORT_WIKI || config.SUPPOST_WIKI || [];
 
@@ -15,7 +16,7 @@ const About = ({ contentHtml }) => {
                 <title>关于 - {config.SITE_NAME}</title>
                 <meta
                     name="description"
-                    content={`WikitDB 是一个面向 Wikidot 社区的非营利同人项目，收录 ${wikis.length} 个站点，提供页面归档、作者追踪、虚拟股市、论坛同步等全方位服务。`}
+                    content={`WikitDB 是一个面向 Wikidot 社区的非营利同人项目，收录 ${wikis.length} 个站点，提供页面归档、作者追踪、虚拟股市和文章讨论等功能。`}
                 />
                 <meta property="og:title" content={`关于 ${config.SITE_NAME}`} />
                 <meta
@@ -43,7 +44,7 @@ const About = ({ contentHtml }) => {
                             关于 {config.SITE_NAME}
                         </h1>
                         <p className="text-lg text-fg-3 leading-relaxed max-w-xl mx-auto">
-                            面向 Wikidot 社区生态的非营利同人项目。把散落在各个分站的页面、作者、评分、论坛数据串起来，让创作者与读者各取所需。
+                            面向 Wikidot 社区生态的非营利同人项目。把散落在各个分站的页面、作者和评分数据串起来，让创作者与读者各取所需。
                         </p>
                     </div>
                 </section>

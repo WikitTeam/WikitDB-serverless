@@ -1,15 +1,15 @@
 # WikitDB-Serverless
 
-> Wikidot 社区的数据归档站 — 把散落在各个分站的页面、作者、评分、论坛数据串起来，让创作者与读者各取所需。
+> Wikidot 社区的数据归档站 — 把散落在各个分站的页面、作者和评分数据串起来，让创作者与读者各取所需。
 
-WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。它聚合多个 Wikidot 分站的页面、作者、评分和论坛数据，并提供一套围绕社区互动的工具集（盲盒、悬赏、宾果、虚拟股市等），同时支持基于 [`kakushi-w/wikit`](https://github.com/kakushi-w/wikit) CLI 的站点级备份能力。
+WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。它聚合多个 Wikidot 分站的页面、作者和评分数据，并提供一套围绕社区互动的工具集（盲盒、悬赏、宾果、虚拟股市等），同时支持基于 [`kakushi-w/wikit`](https://github.com/kakushi-w/wikit) CLI 的站点级备份能力。
 
 ## 功能概览
 
 - **页面归档**：实时同步各分站页面元数据，支持按站点、标签、评分区间、发布时间多维筛选
 - **作者追踪**：跨站收录作者创作与评分走势，可订阅作者动态
 - **虚拟股市**：把创作产出、评分变化、互动数据转化为波动曲线的「作者概念股」
-- **论坛同步**：已接入分站的论坛帖子索引与搜索，保留完整回帖树结构
+- **文章讨论**：在文章页面查看关联讨论区，支持匿名回复
 - **实用工具集**：盲盒抽取、删除公告生成、质量评审、悬赏活动、宾果活动、乱斗竞猜、成员自助管理等
 - **站点备份**：通过独立脚本调用 wikit CLI 备份已配置站点
 
@@ -22,7 +22,7 @@ WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。�
 | 图表 | Chart.js / Recharts / lightweight-charts |
 | 后端存储 | PostgreSQL via Prisma ORM 6 |
 | 抓取与同步 | kakushi-w/wikit CLI、Wikit GraphQL API |
-| 论坛渲染 | FTML (Wikidot 文本标记语言) WASM 内核 |
+| Wikidot 文本渲染 | FTML (Wikidot 文本标记语言) WASM 内核 |
 | HTML 消毒 | sanitize-html |
 | 鉴权 | JWT (HS256) + bcrypt + httpOnly Cookie |
 | 邮件 | nodemailer |

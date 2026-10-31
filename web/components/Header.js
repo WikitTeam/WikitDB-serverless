@@ -31,12 +31,12 @@ const NAV_ITEMS = [
     { href: '/tools', label: '工具' },
 ];
 const NAV_ITEMS_TAIL = [
-    { href: '/forums', label: '论坛' },
     { href: '/about', label: '关于' },
 ];
 const STAFF_ITEM = { href: '/staff-panel', label: '职员面板', tone: 'text-primary-600 dark:text-primary-500' };
 const DEFAULT_TONE = 'text-zinc-600 dark:text-zinc-300';
 
+// 展示桌面和移动端导航及当前用户入口。
 const Header = () => {
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -222,9 +222,6 @@ const Header = () => {
                                     <i className="fa-solid fa-user-shield"></i> 职员面板
                                 </Link>
                             )}
-                            <Link href="/forums" className="rounded-md px-3 py-2 text-sm font-medium text-fg-2 hover:bg-sunken hover:text-fg">
-                                <i className="fa-solid fa-comments"></i> 论坛
-                            </Link>
                             <Link href="/about" className="rounded-md px-3 py-2 text-sm font-medium text-fg-2 hover:bg-sunken hover:text-fg">
                                 <i className="fa-solid fa-circle-info"></i> 关于
                             </Link>

@@ -3,7 +3,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 
 const config = require('@wikitdb/shared/config');
-const forumSyncSites = config.SUPPORT_WIKI.filter(w => w.FORUM_SYNC);
 
 function KpiTile({ label, value }) {
     return (
@@ -14,6 +13,7 @@ function KpiTile({ label, value }) {
     );
 }
 
+/** 展示管理后台并处理站点、账号及任务状态管理。 */
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('overview');
     const [currentUser, setCurrentUser] = useState(null);
@@ -40,13 +40,10 @@ export default function AdminDashboard() {
     const [isAdjusting, setIsAdjusting] = useState(false);
     const [accessLogs, setAccessLogs] = useState([]);
     const [accessLogFilter, setAccessLogFilter] = useState('');
-    const [forumSyncSite, setForumSyncSite] = useState('all');
-    const [forumSyncing, setForumSyncing] = useState(false);
-    const [forumSyncResult, setForumSyncResult] = useState(null);
     const [honeypotLogs, setHoneypotLogs] = useState([]);
     const [overviewStats, setOverviewStats] = useState(null);
     const [sites, setSites] = useState([]);
-    const [siteForm, setSiteForm] = useState({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '', FORUM_SYNC: false });
+    const [siteForm, setSiteForm] = useState({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
     const [siteMsg, setSiteMsg] = useState(null);
     const [savingSite, setSavingSite] = useState(false);
     const [editingSiteParam, setEditingSiteParam] = useState(null);
@@ -187,6 +184,7 @@ export default function AdminDashboard() {
             .finally(() => setFileLogLoading(false));
     };
 
+    // 保存新增或编辑后的站点配置，并重置表单。
     const handleAddSite = async () => {
         if (!siteForm.NAME || !siteForm.URL || !siteForm.PARAM || !siteForm.WIKIT_ID) {
             setSiteMsg({ type: 'error', text: '请填写必填字段（站点名称 / URL / PARAM / WIKIT_ID）' });
@@ -203,7 +201,7 @@ export default function AdminDashboard() {
             setSites(d.sites || []);
             setSiteMsg({ type: 'ok', text: isEdit ? (d.message || '站点已更新') : '站点已添加，配置已写入 wikitdb.config.js' });
             setEditingSiteParam(null);
-            setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '', FORUM_SYNC: false });
+            setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
         } catch (e) {
             setSiteMsg({ type: 'error', text: e.error || (editingSiteParam ? '更新站点失败' : '添加站点失败') });
         } finally {
@@ -211,6 +209,7 @@ export default function AdminDashboard() {
         }
     };
 
+    // 将选中站点的配置载入编辑表单。
     const handleEditSite = (site) => {
         setEditingSiteParam(site.PARAM);
         setSiteForm({
@@ -221,16 +220,16 @@ export default function AdminDashboard() {
             ImgURL: site.ImgURL || '',
             GQL_API: site.GQL_API || '',
             AUTHOR_TAG: site.AUTHOR_TAG || '',
-            ATTRIBUTION_PAGE: site.ATTRIBUTION_PAGE || '',
-            FORUM_SYNC: !!site.FORUM_SYNC
+            ATTRIBUTION_PAGE: site.ATTRIBUTION_PAGE || ''
         });
         setSiteMsg(null);
         document.querySelector('#site-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
+    // 退出站点编辑并清空表单与提示。
     const handleCancelEdit = () => {
         setEditingSiteParam(null);
-        setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '', FORUM_SYNC: false });
+        setSiteForm({ NAME: '', URL: '', PARAM: '', WIKIT_ID: '', ImgURL: '', GQL_API: '', AUTHOR_TAG: '', ATTRIBUTION_PAGE: '' });
         setSiteMsg(null);
     };
 
@@ -334,15 +333,6 @@ export default function AdminDashboard() {
         } catch {} finally { setIsAdjusting(false); }
     };
 
-    const handleForumSync = async () => {
-        setForumSyncing(true); setForumSyncResult(null);
-        try {
-            const d = await api('/api/admin/forum-sync', { method: 'POST', body: JSON.stringify({ site: forumSyncSite }) });
-            setForumSyncResult(d);
-        } catch (e) { setForumSyncResult({ error: e.error || '同步失败' }); }
-        finally { setForumSyncing(false); }
-    };
-
     const clearHoneypot = async () => {
         if (!confirm('确定清空所有蜜罐日志？')) return;
         await api('/api/admin/honeypot-logs', { method: 'DELETE' });
@@ -362,7 +352,6 @@ export default function AdminDashboard() {
         { id: 'logs', label: '日志' },
         { id: 'broadcast', label: '广播' },
         { id: 'economy', label: '经济' },
-        { id: 'forum', label: '论坛同步' },
         { id: 'access', label: '访问日志' },
     ];
 
@@ -460,11 +449,11 @@ export default function AdminDashboard() {
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">PARAM</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">WIKIT_ID</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">归属页</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">论坛同步</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">操作</th>
                                             </tr>
                                         </thead>
                                         <tbody className={tableRowCls}>
+                                            {/* 展示各站点的配置和管理操作。 */}
                                             {sites.map(site => (
                                                 <tr key={site.PARAM} className={hoverRowCls}>
                                                     <td className="px-4 py-2.5 text-sm text-fg-2">
@@ -479,7 +468,6 @@ export default function AdminDashboard() {
                                                     <td className="px-4 py-2.5 text-sm font-mono text-fg-2">{site.PARAM}</td>
                                                     <td className="px-4 py-2.5 text-sm font-mono text-fg-2">{site.WIKIT_ID}</td>
                                                     <td className="px-4 py-2.5 text-sm text-fg-2">{site.ATTRIBUTION_PAGE ? <span className="font-mono text-xs text-accent">{site.ATTRIBUTION_PAGE}</span> : '-'}</td>
-                                                    <td className="px-4 py-2.5 text-sm text-fg-2">{site.FORUM_SYNC ? '是' : '否'}</td>
                                                     <td className="px-4 py-2.5 text-sm">
                                                         <div className="flex items-center justify-end gap-2">
                                                             <button onClick={() => handleEditSite(site)} className={btnGhost}>编辑</button>
@@ -505,10 +493,6 @@ export default function AdminDashboard() {
                                     <input value={siteForm.GQL_API} onChange={e => setSiteForm(p => ({ ...p, GQL_API: e.target.value }))} placeholder="GQL_API 端点（可选，默认 wikit 官方）" className={inputLgCls} />
                                     <input value={siteForm.AUTHOR_TAG} onChange={e => setSiteForm(p => ({ ...p, AUTHOR_TAG: e.target.value }))} placeholder="作者标签（可选，默认 作者）" className={inputLgCls} />
                                     <input value={siteForm.ATTRIBUTION_PAGE} onChange={e => setSiteForm(p => ({ ...p, ATTRIBUTION_PAGE: e.target.value }))} placeholder="归属资料页面（可选，如 attribution-metadata）" className={inputLgCls} />
-                                    <label className="flex items-center gap-2 text-sm text-fg-2">
-                                        <input type="checkbox" checked={!!siteForm.FORUM_SYNC} onChange={e => setSiteForm(p => ({ ...p, FORUM_SYNC: e.target.checked }))} className="h-4 w-4 rounded border-line bg-sunken" />
-                                        启用论坛同步 (FORUM_SYNC)
-                                    </label>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button onClick={handleAddSite} disabled={savingSite} className={btnPrimary + ' disabled:opacity-50'}>{savingSite ? '保存中...' : (editingSiteParam ? '保存修改' : '添加站点')}</button>
@@ -879,27 +863,6 @@ export default function AdminDashboard() {
                                 </div>
                                 <button onClick={handleBounty} className={btnPrimary}>更新赏金</button>
                             </div>
-                        </div>
-                    )}
-
-                    {/* Forum Sync */}
-                    {activeTab === 'forum' && (
-                        <div className={cardCls + ' space-y-4'}>
-                            <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">论坛同步</div>
-                            <div className="flex gap-3 items-center">
-                                <select value={forumSyncSite} onChange={e => setForumSyncSite(e.target.value)}
-                                    className="rounded-md border border-line bg-sunken px-3 py-1.5 text-sm text-fg outline-none focus:ring-2 focus:ring-accent">
-                                    <option value="all">全部站点</option>
-                                    {forumSyncSites.map(s => <option key={s.SLUG} value={s.SLUG}>{s.NAME}</option>)}
-                                </select>
-                                <button onClick={handleForumSync} disabled={forumSyncing}
-                                    className={btnPrimary + ' disabled:opacity-50'}>
-                                    {forumSyncing ? '同步中...' : '开始同步'}
-                                </button>
-                            </div>
-                            {forumSyncResult && (
-                                <pre className="rounded-md bg-sunken border border-line p-3 text-xs text-fg-2 overflow-auto max-h-48">{JSON.stringify(forumSyncResult, null, 2)}</pre>
-                            )}
                         </div>
                     )}
 

@@ -152,56 +152,6 @@ model AccessLog {
   @@map("access_logs")
 }
 
-model ForumCategory {
-  id           Int       @id @default(autoincrement())
-  siteParam    String    @db.VarChar(50)
-  categoryId   String    @db.VarChar(50)
-  title        String
-  description  String    @default("") @db.Text
-  threadsCount Int       @default(0)
-  postsCount   Int       @default(0)
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-
-  @@unique([siteParam, categoryId])
-  @@map("forum_categories")
-}
-
-model ForumThread {
-  id           Int       @id @default(autoincrement())
-  siteParam    String    @db.VarChar(50)
-  threadId     String    @db.VarChar(50)
-  categoryId   String    @db.VarChar(50)
-  title        String
-  createdBy    String
-  postCount    Int       @default(0)
-  isSticky     Boolean   @default(false)
-  isLocked     Boolean   @default(false)
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-
-  @@unique([siteParam, threadId])
-  @@index([siteParam, categoryId])
-  @@map("forum_threads")
-}
-
-model ForumPost {
-  id          Int      @id @default(autoincrement())
-  siteParam   String   @db.VarChar(50)
-  postId      String   @db.VarChar(50)
-  threadId    String   @db.VarChar(50)
-  parentId    String?  @db.VarChar(50)
-  title       String   @default("")
-  contentHtml String   @db.Text
-  author      String
-  authorId    String?
-  createdAt   DateTime @default(now())
-
-  @@unique([siteParam, postId])
-  @@index([siteParam, threadId])
-  @@map("forum_posts")
-}
-
 model ProxyPost {
   id           Int      @id @default(autoincrement())
   userId       Int      // 提交人（本站用户）

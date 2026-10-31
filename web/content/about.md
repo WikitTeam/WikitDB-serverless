@@ -1,6 +1,6 @@
 # 关于 WikitDB
 
-**WikitDB** 是面向 Wikidot 社区生态的开源项目，基于 **Wikit API** 的数据接口，致力于把散落在各个 Wikidot 站点的页面、作者、评分、论坛数据串联起来，为读者和作者提供统一的检索、追踪与分析体验。
+**WikitDB** 是面向 Wikidot 社区生态的开源项目，基于 **Wikit API** 的数据接口，致力于把散落在各个 Wikidot 站点的页面、作者和评分数据串联起来，为读者和作者提供统一的检索、追踪与分析体验。
 
 **WikitDB** 企划最初由 lestday233 提出，由 Laimu_slime 主持开发和架构，由 OxygenNine 进行全面的视觉升级；数据接口由 **Wikit API** 提供强力支持。
 
@@ -22,9 +22,9 @@
 - 把创作产出、评分变化、互动数据转化为波动曲线
 - 在充满博弈的虚拟市场中挖掘被低估的潜力新星
 
-### 论坛同步
-- 支持已接入分站的论坛帖子索引与搜索
-- 保留并还原完整的帖楼数据
+### 文章讨论
+- 在文章页面查看关联讨论区
+- 支持匿名回复
 
 ### 多样工具
 - 盲盒抽取、交易市场、战力雷达等娱乐玩法
@@ -56,7 +56,7 @@
 - **前端框架**：Next.js Pages Router + React 18 + Tailwind CSS
 - **后端存储**：PostgreSQL via Prisma ORM
 - **抓取与同步**：kakushi-w/wikit CLI，Wikit GraphQL API
-- **论坛渲染**：FTML (Wikidot 文本标记语言) WASM 内核
+- **Wikidot 文本渲染**：FTML (Wikidot 文本标记语言) WASM 内核
 - **安全与基础设施**：JWT (HS256)、bcrypt、CSRF Origin 校验、IP 双层限速
 
 ---

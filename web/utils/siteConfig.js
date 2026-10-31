@@ -120,7 +120,6 @@ function validateSite(input) {
         }
         site.ATTRIBUTION_PAGE = attrPage;
     }
-    if (input.FORUM_SYNC === true || input.FORUM_SYNC === 'true') site.FORUM_SYNC = true;
 
     return { site };
 }
