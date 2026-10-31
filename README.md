@@ -1,4 +1,4 @@
-# WikitDB Server
+# WikitDB-Serverless
 
 > Wikidot 社区的数据归档站 — 把散落在各个分站的页面、作者、评分、论坛数据串起来，让创作者与读者各取所需。
 
