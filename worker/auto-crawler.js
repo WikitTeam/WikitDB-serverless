@@ -6,7 +6,6 @@ const path = require('path');
 require('@next/env').loadEnvConfig(path.join(__dirname, '..'), process.env.NODE_ENV !== 'production');
 const prisma = require('@wikitdb/shared/prisma');
 const { getSites } = require('@wikitdb/shared/sites');
-const fs = require('fs');
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10 });
@@ -17,17 +16,6 @@ const request = axios.create({
 });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-const CRAWLER_LOG_FILE = path.join(__dirname, '..', 'crawler.log');
-
-/** 同时输出到控制台和 crawler.log，方便管理后台查看 */
-function logLine(...args) {
-    const line = args.map(String).join(' ');
-    console.log(line);
-    try {
-        fs.appendFileSync(CRAWLER_LOG_FILE, `[${new Date().toLocaleString()}] ${line}\n`, 'utf8');
-    } catch (e) { /* 日志文件写入失败不影响主流程 */ }
-}
 
 const CRAWLER_STATUS_KEY = 'crawler:status';
 let statusErrors = 0;
@@ -118,7 +106,7 @@ async function runCrawler() {
         const baseHeaders = { 'User-Agent': 'Mozilla/5.0' };
         if (botCookie) baseHeaders['Cookie'] = botCookie;
 
-        logLine(`\n[${new Date().toLocaleString()}] 开始执行全站数据(评分+讨论区)爬取...`);
+        console.log(`\n[${new Date().toLocaleString()}] 开始执行全站数据(评分+讨论区)爬取...`);
         crawlStatus = {
             running: true,
             startedAt: Date.now(),
@@ -179,12 +167,12 @@ async function runCrawler() {
                                 }
                             }
                         });
-                        logLine(`成功 ${countThisPage} 篇`);
+                        console.log(`成功 ${countThisPage} 篇`);
                         listAttempts = 0;
                         if (pageNum >= totalPages) hasMore = false;
                         else pageNum++;
                     } catch (e) {
-                        logLine(`[失败] ${wikiParam} 清单第 ${pageNum} 页，第 ${listAttempts}/3 次: ${e.message}`);
+                        console.log(`[失败] ${wikiParam} 清单第 ${pageNum} 页，第 ${listAttempts}/3 次: ${e.message}`);
                         if (listAttempts >= 3) throw e;
                         await sleep(3000);
                     }
@@ -382,7 +370,7 @@ async function runCrawler() {
                                 success = true;
                             } catch (err) {
                                 pageError = err;
-                                logLine(`[失败] ${wikiParam}/${pageNode.page} 页面抓取或入库第 ${attempt}/3 次: ${err.message}`);
+                                console.log(`[失败] ${wikiParam}/${pageNode.page} 页面抓取或入库第 ${attempt}/3 次: ${err.message}`);
                                 if (attempt < 3) await sleep(2000);
                             }
                         }
@@ -393,7 +381,7 @@ async function runCrawler() {
                     }));
 
                     count += batch.length;
-                    logLine(`--- 当前进度: [${count}/${allPages.length}] ---`);
+                    console.log(`--- 当前进度: [${count}/${allPages.length}] ---`);
 
                     if (count % 100 === 0 || count >= allPages.length) {
                         if (siteStatus) {
@@ -438,7 +426,7 @@ async function runCrawler() {
 
             } catch (e) {
                 siteErrors++;
-                logLine(`[失败] ${wikiParam} ${crawlStatus.currentStage}: ${e.message}`);
+                console.log(`[失败] ${wikiParam} ${crawlStatus.currentStage}: ${e.message}`);
                 if (siteStatus) siteStatus.error = e.message;
             }
             if (siteErrors > 0) process.exitCode = 1;
@@ -476,9 +464,9 @@ runCrawler().finally(async () => {
 }).catch((error) => {
     // 报告未被站点隔离处理的任务或资源释放异常。
     process.exitCode = 1;
-    logLine(`[失败] 主爬虫: ${error.message}`);
+    console.log(`[失败] 主爬虫: ${error.message}`);
 }).finally(() => {
     // 汇总最终异常站点的数量和状态写入错误。
     const failedSites = crawlStatus.sites.filter(s => s.status === 'error').length;
-    logLine(`[主爬虫] ${process.exitCode ? '失败' : '完成'}：站点失败 ${failedSites}/${crawlStatus.sites.length}，状态写入失败 ${statusErrors}`);
+    console.log(`[主爬虫] ${process.exitCode ? '失败' : '完成'}：站点失败 ${failedSites}/${crawlStatus.sites.length}，状态写入失败 ${statusErrors}`);
 });

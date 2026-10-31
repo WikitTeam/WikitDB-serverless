@@ -1,30 +1,21 @@
 const { spawn } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 require('@next/env').loadEnvConfig(path.join(__dirname, '..'), process.env.NODE_ENV !== 'production');
 const prisma = require('@wikitdb/shared/prisma');
 const { getSites } = require('@wikitdb/shared/sites');
 const { buildBackupArgs, getWikiName } = require('./utils/wikitBackup');
 
-/** 将备份状态同时写入控制台和管理后台使用的日志文件。 */
-function logLine(message) {
-    console.log(message);
-    try {
-        fs.appendFileSync(path.join(__dirname, '..', 'crawler.log'), `[${new Date().toLocaleString()}] ${message}\n`, 'utf8');
-    } catch (error) { /* 日志文件写入失败不影响备份进程 */ }
-}
-
 /** 备份所有配置站点，并以子进程的执行结果结束本轮任务。 */
 async function runWikitBackup() {
     const configuredSites = await getSites();
     const wiki_names = configuredSites.map(getWikiName).filter(Boolean);
     if (wiki_names.length === 0) {
-        logLine('[备份] 未配置有效站点，跳过。');
+        console.log('[备份] 未配置有效站点，跳过。');
         return;
     }
 
     const args = buildBackupArgs({ wikiNames: wiki_names, keepRemoved: true });
-    logLine(`[备份] 开始备份 ${wiki_names.length} 个站点。`);
+    console.log(`[备份] 开始备份 ${wiki_names.length} 个站点。`);
     // 等待子进程结束，将启动失败、非零退出和信号终止传给任务入口。
     await new Promise((resolve, reject) => {
         const child = spawn('wikit', args, {
@@ -45,12 +36,12 @@ async function runWikitBackup() {
             else reject(new Error(signal ? `备份被信号 ${signal} 终止` : `备份退出码 ${code}`));
         });
     });
-    logLine('[备份] 完成。');
+    console.log('[备份] 完成。');
 }
 
 runWikitBackup().finally(async () => {
     await prisma.$disconnect();
 }).catch((error) => {
     process.exitCode = 1;
-    logLine(`[备份] 失败: ${error.message}`);
+    console.log(`[备份] 失败: ${error.message}`);
 });

@@ -19,7 +19,6 @@ export default function AdminDashboard() {
     const [users, setUsers] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [logs, setLogs] = useState([]);
     const [inspectData, setInspectData] = useState(null);
     const [inspectTarget, setInspectTarget] = useState('');
     const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -48,9 +47,6 @@ export default function AdminDashboard() {
     const [crawlerStatus, setCrawlerStatus] = useState(null);
     const [crawlerSites, setCrawlerSites] = useState([]);
     const [crawlerLoading, setCrawlerLoading] = useState(false);
-    const [fileLogs, setFileLogs] = useState({ lines: [], totalLines: 0 });
-    const [fileLogKey, setFileLogKey] = useState('crawler');
-    const [fileLogLoading, setFileLogLoading] = useState(false);
     const [staffMsg, setStaffMsg] = useState(null);
     const [staffEditing, setStaffEditing] = useState(null);
     const [staffEditSites, setStaffEditSites] = useState([]);
@@ -99,17 +95,14 @@ export default function AdminDashboard() {
         if (!currentUser?.isAdmin) return;
         Promise.all([
             fetch('/api/admin/users', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { users: [] }),
-            fetch('/api/admin/logs?limit=50', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { logs: [] }),
             fetch('/api/admin/quarantine', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { wikis: [], tags: [], authors: [] }),
             fetch('/api/admin/access-logs?limit=100', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { logs: [] }),
             fetch('/api/admin/honeypot-logs?limit=200', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { logs: [] }),
             fetch('/api/admin/overview', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : null),
             fetch('/api/admin/sites', { credentials: 'include', headers: authHeaders() }).then(r => r.json()),
             fetch('/api/admin/crawler-status', { credentials: 'include', headers: authHeaders() }).then(r => r.json()),
-            fetch('/api/admin/file-logs?file=crawler&lines=800', { credentials: 'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { lines: [], totalLines: 0 }),
-        ]).then(([uData, lData, qData, aData, hData, oData, siteData, crawlerData, fileLogData]) => {
+        ]).then(([uData, qData, aData, hData, oData, siteData, crawlerData]) => {
             setUsers(uData.users || []);
-            setLogs(lData.logs || []);
             setQuarantineData({ wikis: qData.wikis || [], tags: qData.tags || [], authors: qData.authors || [] });
             setAccessLogs(aData.logs || []);
             setHoneypotLogs(hData.logs || []);
@@ -122,7 +115,6 @@ export default function AdminDashboard() {
                 setCrawlerStatus(crawlerData.status || null);
                 setCrawlerSites(crawlerData.sites);
             }
-            if (fileLogData && Array.isArray(fileLogData.lines)) setFileLogs(fileLogData);
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
@@ -168,7 +160,6 @@ export default function AdminDashboard() {
     };
 
     const refreshUsers = () => api('/api/admin/users').then(d => setUsers(d.users || []));
-    const refreshLogs = () => api('/api/admin/logs?limit=50').then(d => setLogs(d.logs || []));
     const refreshAccessLogs = () => api('/api/admin/access-logs?limit=100').then(d => setAccessLogs(d.logs || []));
     const refreshHoneypot = () => api('/api/admin/honeypot-logs?limit=200').then(d => setHoneypotLogs(d.logs || []));
     const refreshSites = () => api('/api/admin/sites')
@@ -180,13 +171,6 @@ export default function AdminDashboard() {
             .then(d => { setCrawlerStatus(d.status || null); setCrawlerSites(d.sites || []); })
             .catch(() => {})
             .finally(() => setCrawlerLoading(false));
-    };
-    const refreshFileLogs = (key = fileLogKey) => {
-        setFileLogLoading(true);
-        return api(`/api/admin/file-logs?file=${encodeURIComponent(key)}&lines=800`)
-            .then(d => setFileLogs(d))
-            .catch(() => setFileLogs({ lines: [], totalLines: 0 }))
-            .finally(() => setFileLogLoading(false));
     };
 
     // 保存新增或编辑后的站点配置，并重置表单。
@@ -355,7 +339,6 @@ export default function AdminDashboard() {
         { id: 'honeypot', label: '蜜罐' },
         { id: 'members', label: '成员' },
         { id: 'quarantine', label: '隔离区' },
-        { id: 'logs', label: '日志' },
         { id: 'broadcast', label: '广播' },
         { id: 'economy', label: '经济' },
         { id: 'access', label: '访问日志' },
@@ -415,18 +398,6 @@ export default function AdminDashboard() {
                                 <KpiTile label="总代币流通" value={overviewStats?.totalTokens} />
                                 <KpiTile label="今日活跃" value={overviewStats?.dailyActive} />
                                 <KpiTile label="蜜罐捕获" value={honeypotLogs.length} />
-                            </div>
-                            <div className={cardCls}>
-                                <div className="text-xs font-semibold uppercase tracking-wide text-fg-3 mb-3">最近操作日志</div>
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {logs.slice(0, 10).map((l, i) => (
-                                        <div key={i} className="flex items-center justify-between text-sm border-b border-line pb-2 last:border-0">
-                                            <span className="text-fg-2">{l.action || l.type}</span>
-                                            <span className="text-fg-3 text-xs">{l.createdAt?.slice(0, 16).replace('T', ' ')}</span>
-                                        </div>
-                                    ))}
-                                    {logs.length === 0 && <div className="text-fg-3 text-sm">暂无日志</div>}
-                                </div>
                             </div>
                         </div>
                     )}
@@ -758,67 +729,6 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
-                    )}
-
-                    {/* Logs */}
-                    {activeTab === 'logs' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">操作日志</div>
-                                <button onClick={refreshLogs} className={btnGhost}>刷新</button>
-                            </div>
-                            <div className="rounded-lg border border-line overflow-hidden bg-panel">
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-line">
-                                        <thead className={tableTheadCls}>
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">时间</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">操作</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">用户</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-3">详情</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className={tableRowCls}>
-                                            {logs.map((l, i) => (
-                                                <tr key={i} className={hoverRowCls}>
-                                                    <td className="px-4 py-2.5 text-sm text-fg-2 whitespace-nowrap">{l.createdAt?.slice(0, 16).replace('T', ' ')}</td>
-                                                    <td className="px-4 py-2.5 text-sm text-fg-2">{l.action || l.type}</td>
-                                                    <td className="px-4 py-2.5 text-sm text-fg-2">{l.username || '-'}</td>
-                                                    <td className="px-4 py-2.5 text-xs text-fg-3 max-w-[300px] truncate">{l.details || l.payload || ''}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* File Logs */}
-                    {activeTab === 'logs' && (
-                        <div className={cardCls + ' space-y-3'}>
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">服务器 / 爬虫文件日志</div>
-                                <div className="flex items-center gap-2">
-                                    <select value={fileLogKey} onChange={e => { setFileLogKey(e.target.value); refreshFileLogs(e.target.value); }}
-                                        className="rounded-md border border-line bg-sunken px-3 py-1.5 text-sm text-fg outline-none focus:ring-2 focus:ring-accent">
-                                        <option value="crawler">crawler.log（爬虫）</option>
-                                        <option value="server">server.log</option>
-                                        <option value="serverErr">server-err.log</option>
-                                    </select>
-                                    <button onClick={() => refreshFileLogs()} className={btnGhost}>{fileLogLoading ? '加载中...' : '刷新'}</button>
-                                </div>
-                            </div>
-                            <pre className="rounded-md bg-sunken border border-line p-3 text-xs text-fg-2 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">
-                                {fileLogs.lines && fileLogs.lines.length > 0 ? fileLogs.lines.join('\n') : '（暂无日志内容）'}
-                            </pre>
-                            {fileLogs.totalLines > 0 && (
-                                <div className="text-xs text-fg-3">
-                                    共 {fileLogs.totalLines} 行，显示最近 {fileLogs.lines ? fileLogs.lines.length : 0} 行
-                                    {fileLogs.mtime ? `（最后更新：${fmtTime(fileLogs.mtime)}）` : ''}
-                                </div>
-                            )}
                         </div>
                     )}
 

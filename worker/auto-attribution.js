@@ -5,7 +5,6 @@
  */
 const http = require('http');
 const https = require('https');
-const fs = require('fs');
 const path = require('path');
 require('@next/env').loadEnvConfig(path.join(__dirname, '..'), process.env.NODE_ENV !== 'production');
 const prisma = require('@wikitdb/shared/prisma');
@@ -21,16 +20,7 @@ const request = require('axios').create({
     validateStatus: (s) => s >= 200 && s < 400
 });
 
-const LOG_FILE = path.join(__dirname, '..', 'crawler.log');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function logLine(...args) {
-    const line = args.map(String).join(' ');
-    console.log(line);
-    try {
-        fs.appendFileSync(LOG_FILE, `[${new Date().toLocaleString()}] ${line}\n`, 'utf8');
-    } catch (e) { /* 忽略 */ }
-}
 
 /** 获取站点全部页面及评分（listpages 分页） */
 async function fetchAllPages(siteConfig) {
@@ -75,7 +65,7 @@ async function processSite(siteConfig) {
     const wikiParam = siteConfig.PARAM;
     const attrRecords = await fetchAttributionPage(siteConfig, request);
     if (attrRecords.length === 0) {
-        logLine(`[归属] ${wikiParam} 归属资料页无有效数据，跳过`);
+        console.log(`[归属] ${wikiParam} 归属资料页无有效数据，跳过`);
         return;
     }
 
@@ -112,7 +102,7 @@ async function processSite(siteConfig) {
         create: { key: `author_score:${wikiParam}`, value: JSON.stringify(authorScores) }
     });
 
-    logLine(`[归属] ${wikiParam} 归属 ${attrRecords.length} 条 | 页面评分 ${allPages.length} | 作者 ${Object.keys(authorScores).length} 位`);
+    console.log(`[归属] ${wikiParam} 归属 ${attrRecords.length} 条 | 页面评分 ${allPages.length} | 作者 ${Object.keys(authorScores).length} 位`);
 }
 
 /** 同步一轮归属资料，隔离站点失败并设置整轮退出码。 */
@@ -122,17 +112,17 @@ async function runAttribution() {
     let failedSites = 0;
     // 只同步配置了归属资料页的站点。
     const sites = configuredSites.filter(w => w.ATTRIBUTION_PAGE);
-    logLine(`[归属] 开始执行（${sites.length} 个站点配置了归属资料页）...`);
+    console.log(`[归属] 开始执行（${sites.length} 个站点配置了归属资料页）...`);
     for (const siteConfig of sites) {
         try {
             await processSite(siteConfig);
         } catch (e) {
             failedSites++;
             process.exitCode = 1;
-            logLine(`[归属] ${siteConfig.PARAM} 处理失败: ${e.message}`);
+            console.log(`[归属] ${siteConfig.PARAM} 处理失败: ${e.message}`);
         }
     }
-    logLine(`[归属] ${failedSites ? '失败' : '完成'}：站点失败 ${failedSites}/${sites.length}，耗时 ${Math.round((Date.now() - start) / 1000)}s`);
+    console.log(`[归属] ${failedSites ? '失败' : '完成'}：站点失败 ${failedSites}/${sites.length}，耗时 ${Math.round((Date.now() - start) / 1000)}s`);
 }
 
 // 无论同步结果如何，都释放本轮使用的连接。
@@ -143,5 +133,5 @@ runAttribution().finally(async () => {
 }).catch((error) => {
     // 报告未被站点隔离处理的任务或资源释放异常。
     process.exitCode = 1;
-    logLine(`[归属] 任务失败: ${error.message}`);
+    console.log(`[归属] 任务失败: ${error.message}`);
 });
