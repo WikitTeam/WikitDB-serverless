@@ -21,19 +21,18 @@ WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。�
 | 样式 | Tailwind CSS 3 |
 | 图表 | Chart.js / Recharts / lightweight-charts |
 | 后端存储 | PostgreSQL via Prisma ORM 6 |
-| 抓取与同步 | kakushi-w/wikit CLI、Wikit GraphQL API |
+| 抓取与同步 | Wikit CLI、Wikit GraphQL API |
 | Wikidot 文本渲染 | FTML (Wikidot 文本标记语言) WASM 内核 |
 | HTML 消毒 | sanitize-html |
 | 鉴权 | JWT (HS256) + bcrypt + httpOnly Cookie |
 | 邮件 | nodemailer |
 | 缓存 | Upstash Redis (可选) |
-| 语言 | JavaScript (逐步迁移至 TypeScript) |
+| 语言 | JavaScript与TypeScript |
 
 ## 环境要求
 
 - **Node.js** ≥ 18（生产推荐 20）
 - **PostgreSQL** 数据库
-- **wikit** CLI（仅在使用备份工具时安装，按其官方说明安装即可）
 
 ## 快速开始
 
