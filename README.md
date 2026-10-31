@@ -197,6 +197,7 @@ WikitDB-Serverless/
 - 新增 API 路由必须用 `withAuth` / `withAdmin` 包装（按需），并通过 CSRF Origin 校验
 - 输出 HTML 前必须经过 `sanitizeRichHtml` 消毒
 - 静态资源 URL 已带 hash，可放心设置长期缓存
+- 编辑说明使用中文书写
 
 ## 贡献
 
