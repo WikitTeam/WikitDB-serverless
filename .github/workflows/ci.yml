@@ -34,7 +34,7 @@ jobs:
       - name: Restore Next.js build cache
         uses: actions/cache@v4
         with:
-          path: .next/cache
+          path: web/.next/cache
           key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
             nextjs-${{ hashFiles('package-lock.json') }}-

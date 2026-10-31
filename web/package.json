@@ -1,0 +1,54 @@
+{
+  "name": "@wikitdb/web",
+  "version": "1.0.0",
+  "private": true,
+  "imports": {
+    "#components/*": "./components/*.js",
+    "#contexts/*": "./contexts/*.js",
+    "#utils/*": "./utils/*.js",
+    "#styles/*": "./styles/*"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test:ftml": "node scripts/test-ftml-runtime.mjs",
+    "start": "next start",
+    "lint": "next lint --quiet",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@fontsource/anton": "^5.3.0",
+    "@fontsource/archivo": "^5.3.0",
+    "@prisma/client": "^6.9.0",
+    "@upstash/redis": "^1.37.0",
+    "autoprefixer": "^10.4.16",
+    "axios": "^1.17.0",
+    "bcryptjs": "^2.4.3",
+    "chart.js": "^4.5.1",
+    "cheerio": "^1.0.0-rc.12",
+    "cookie": "^0.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "lightweight-charts": "^4.1.3",
+    "next": "15.5.21",
+    "nodemailer": "^9.0.3",
+    "nvm": "^0.0.4",
+    "postcss": "^8.5.23",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "recharts": "^2.15.4",
+    "sanitize-html": "^2.17.0",
+    "tailwindcss": "^3.3.5",
+    "@wikitdb/shared": "1.0.0",
+    "@next/env": "15.5.21"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/node": "^20.19.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "15.5.21",
+    "typescript": "^5.9.3"
+  }
+}

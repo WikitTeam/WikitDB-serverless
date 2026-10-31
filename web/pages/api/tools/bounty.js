@@ -1,0 +1,190 @@
+import prisma from '@wikitdb/shared/prisma';
+import { withAuth } from '#utils/withAuth';
+import { getAdminUser } from '#utils/adminAuth';
+const { DEFAULT_GQL_ENDPOINT } = require('#utils/graphql');
+const { isArticleOwnedBy } = require('#utils/securityPolicy');
+
+const generateBounties = (config) => {
+    const tagPool = config?.tags?.length > 0 ? config.tags : ['原创', '精品', 'scp', 'tale', 'goi-format', '微恐', '搞笑', '科幻', 'keter', '安全'];
+    const minR = config?.minRating ?? 10;
+    const maxR = config?.maxRating ?? 50;
+    const baseReward = config?.baseReward ?? 800;
+
+    const bounties = [];
+    for (let i = 0; i < 3; i++) {
+        const tags = [tagPool[Math.floor(Math.random() * tagPool.length)]];
+        if (Math.random() > 0.5) tags.push(tagPool[Math.floor(Math.random() * tagPool.length)]);
+        const uniqueTags = [...new Set(tags)];
+        const reqMinRating = Math.floor(Math.random() * (maxR - minR + 1)) + minR; 
+        
+        bounties.push({
+            id: `bounty_${Date.now()}_${i}`,
+            tags: uniqueTags, minRating: reqMinRating,
+            reward: (uniqueTags.length * baseReward) + (reqMinRating * 20),
+            status: 'active', claimer: null, claimedPage: null
+        });
+    }
+    return bounties;
+};
+
+async function handler(req, res) {
+    if (req.method === 'GET') {
+        if (req.query.action === 'config') {
+            try {
+                const configRecord = await prisma.setting.findUnique({ where: { key: 'config:bounty' } });
+                let config = {};
+                if (configRecord && configRecord.value) {
+                    try { config = JSON.parse(configRecord.value); } catch(e) {}
+                }
+                return res.status(200).json(config);
+            } catch (e) { return res.status(500).json({ error: '配置读取失败' }); }
+        }
+        try {
+            const bountiesRecord = await prisma.setting.findUnique({ where: { key: 'bounties_list' } });
+            let bounties = null;
+            
+            if (bountiesRecord && bountiesRecord.value) {
+                try { bounties = JSON.parse(bountiesRecord.value); } catch(e) {}
+            }
+
+            if (!bounties) {
+                const configRecord = await prisma.setting.findUnique({ where: { key: 'config:bounty' } });
+                let config = {};
+                if (configRecord && configRecord.value) {
+                    try { config = JSON.parse(configRecord.value); } catch(e) {}
+                }
+                
+                bounties = generateBounties(config);
+                await prisma.setting.upsert({
+                    where: { key: 'bounties_list' },
+                    update: { value: JSON.stringify(bounties) },
+                    create: { key: 'bounties_list', value: JSON.stringify(bounties) }
+                });
+            }
+            return res.status(200).json({ bounties });
+        } catch (e) { return res.status(500).json({ error: '读取悬赏列表失败' }); }
+    }
+
+    if (req.method === 'POST') {
+        const { action, bountyId, wiki, page } = req.body;
+
+        if (action === 'refresh') {
+            const admin = await getAdminUser(req);
+            if (!admin) return res.status(403).json({ error: '仅管理员可刷新悬赏' });
+
+            const configRecord = await prisma.setting.findUnique({ where: { key: 'config:bounty' } });
+            let config = {};
+            if (configRecord && configRecord.value) {
+                try { config = JSON.parse(configRecord.value); } catch(e) {}
+            }
+            
+            const newBounties = generateBounties(config);
+            await prisma.setting.upsert({
+                where: { key: 'bounties_list' },
+                update: { value: JSON.stringify(newBounties) },
+                create: { key: 'bounties_list', value: JSON.stringify(newBounties) }
+            });
+            return res.status(200).json({ success: true, bounties: newBounties });
+        }
+
+        const username = req.user.username;
+
+        if (!bountyId || !wiki || !page) return res.status(400).json({ error: '请填写完整的 Wiki 和 Page 标识符' });
+
+        try {
+            const user = await prisma.user.findUnique({ where: { username } });
+            if (!user) return res.status(404).json({ error: '用户不存在' });
+
+            const bountiesRecord = await prisma.setting.findUnique({ where: { key: 'bounties_list' } });
+            let bounties = null;
+            if (bountiesRecord && bountiesRecord.value) {
+                try { bounties = JSON.parse(bountiesRecord.value); } catch(e) {}
+            }
+            
+            if (!bounties) return res.status(404).json({ error: '悬赏数据已过期' });
+
+            const bountyIndex = bounties.findIndex(b => b.id === bountyId);
+            if (bountyIndex === -1) return res.status(404).json({ error: '找不到该悬赏任务' });
+            const bounty = bounties[bountyIndex];
+
+            if (bounty.status !== 'active') return res.status(400).json({ error: '这笔悬赏已经被领走了' });
+
+            const query = {
+                query: `query($wiki: String!, $page: String!) { article(wiki: $wiki, page: $page) { title rating tags author } }`,
+                variables: { wiki, page }
+            };
+            const gqlRes = await fetch(DEFAULT_GQL_ENDPOINT, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query)
+            });
+            const gqlData = await gqlRes.json();
+
+            if (gqlData.errors || !gqlData.data?.article) return res.status(400).json({ error: '未找到此页面，请检查拼写' });
+
+            const article = gqlData.data.article;
+            if (!isArticleOwnedBy(article.author, user.wikidotAccount)) {
+                return res.status(403).json({ error: '该页面不属于你绑定的 Wikidot 账号' });
+            }
+            const hasAllTags = bounty.tags.every(t => (article.tags || []).includes(t));
+            const meetsRating = (article.rating || 0) >= bounty.minRating;
+
+            if (!hasAllTags || !meetsRating) return res.status(400).json({ error: `验证不通过。` });
+
+            const result = await prisma.$transaction(async (tx) => {
+                await tx.bountyClaim.create({
+                    data: {
+                        bountyId,
+                        userId: user.id,
+                        wiki,
+                        page,
+                        reward: bounty.reward
+                    }
+                });
+
+                const updatedUser = await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        balance: {
+                            increment: bounty.reward
+                        }
+                    }
+                });
+
+                await tx.trade.create({
+                    data: {
+                        userId: user.id,
+                        type: 'SELL',
+                        amount: bounty.reward,
+                        target: `BOUNTY:${bountyId}`,
+                        description: `悬赏奖励: ${bounty.reward}, 页面: ${article.title}, 标识符: ${wiki}/${page}`,
+                        status: 'COMPLETED'
+                    }
+                });
+
+                bounties[bountyIndex].status = 'claimed';
+                bounties[bountyIndex].claimer = username;
+                bounties[bountyIndex].claimedPage = article.title;
+                
+                await tx.setting.update({
+                    where: { key: 'bounties_list' },
+                    data: { value: JSON.stringify(bounties) }
+                });
+
+                return updatedUser.balance;
+            });
+
+            return res.status(200).json({ success: true, article, reward: bounty.reward, newBalance: result, bounties });
+        } catch (e) {
+            console.error('Bounty error:', e);
+            if (e.code === 'P2002') {
+                return res.status(409).json({ error: '这笔悬赏已经被领取' });
+            }
+            return res.status(500).json({ error: e.message || '服务器内部错误' }); 
+        }
+    }
+}
+
+export default function route(req, res) {
+    if (req.method === 'GET') return handler(req, res);
+    if (req.method === 'POST') return withAuth(handler)(req, res);
+    return res.status(405).json({ error: 'Method not allowed' });
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@wikitdb/shared",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./prisma": "./prisma.js",
+    "./config": "./wikitdb.config.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0"
+  }
+}

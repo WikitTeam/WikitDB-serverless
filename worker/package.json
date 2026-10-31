@@ -1,0 +1,12 @@
+{
+  "name": "@wikitdb/worker",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@next/env": "15.5.21",
+    "@wikitdb/shared": "1.0.0",
+    "axios": "^1.17.0",
+    "cheerio": "^1.0.0-rc.12",
+    "node-cron": "^4.2.1"
+  }
+}

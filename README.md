@@ -41,19 +41,19 @@ WikitDB 是一个面向 Wikidot 社区生态的**非营利性同人项目**。�
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/WikitTeam/WikitDB-Server.git
-cd WikitDB-Server
+git clone https://github.com/WikitTeam/WikitDB-serverless.git
+cd WikitDB-serverless
 ```
 
 ### 2. 安装依赖
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. 配置环境变量
 
-复制 `.env.example` 为 `.env` 并填入所需值：
+在仓库根目录复制 `.env.example` 为 `.env` 并填入所需值。网站、Worker 和 Prisma 命令共用这份配置：
 
 ```bash
 cp .env.example .env
@@ -76,7 +76,7 @@ npm run prisma:push
 
 ### 5. 配置收录站点
 
-编辑 [`wikitdb.config.js`](wikitdb.config.js) 中的 `SUPPORT_WIKI` 数组，按注释模板添加或删除站点。每个站点对象包含 `NAME` / `URL` / `ImgURL` / `PARAM` / `WIKIT_ID` 等字段。
+编辑 [`shared/wikitdb.config.js`](shared/wikitdb.config.js) 中的 `SUPPORT_WIKI` 数组，按注释模板添加或删除站点。每个站点对象包含 `NAME` / `URL` / `ImgURL` / `PARAM` / `WIKIT_ID` 等字段。
 
 ### 6. 启动开发服务器
 
@@ -95,36 +95,52 @@ npm run build
 npm start
 ```
 
-### 备份 Worker（可选）
+### 爬虫与备份 Worker
 
-如需启用 Wikidot 站点定时备份，需将 wikit CLI 安装到服务器 PATH 中，并以常驻进程方式运行 worker：
+在仓库根目录启动主爬虫及每日备份调度：
 
 ```bash
 npm run worker
 ```
 
-Worker 会在每天 12:00（Asia/Shanghai 时区）对所有 `wikitdb.config.js` 中声明的站点执行备份，归档写入工作目录下的 `wikit_data/`。任务限定为单进程串行执行，且服务端始终传递 `--keep-removed`，确保从 sitemap 消失的页面仍保留在归档中。
+主爬虫启动后立即执行一轮，此后按运行环境时区每三小时执行。备份每天 12:00（Asia/Shanghai 时区）运行，需要在 PATH 中安装 wikit CLI。备份覆盖 `shared/wikitdb.config.js` 中配置的站点，归档写入仓库根目录的 `wikit_data/`，通过 `--keep-removed` 保留从 sitemap 消失的页面。
+
+归属同步使用独立脚本，启动时执行一轮，此后每 30 分钟同步归属资料和作者评分：
+
+```bash
+node worker/auto-attribution.js
+```
+
+两个 Worker 的日志均写入仓库根目录的 `crawler.log`。
 
 ## 项目结构
 
 ```
-WikitDB-Server/
-├── pages/                  # Next.js Pages Router
-│   ├── api/                # API 路由
-│   ├── tools/              # 工具页面
-│   └── *.js                # 业务页面
-├── components/             # 复用组件
-├── lib/                    # 基础设施（Prisma client）
-├── utils/                  # 工具函数（auth / security / sanitizer / markdownLite 等）
-├── content/                # 静态内容（about.md 等）
-├── public/                 # 静态资源
-│   └── vendor/ftml/        # FTML WASM 内核
-├── prisma/                 # Prisma schema
-├── scripts/                # 一次性脚本
-├── tests/                  # 单元测试
-├── middleware.js           # 全局限速 / Honeypot
-├── next.config.js          # Next.js 配置（含安全头）
-└── wikitdb.config.js       # 站点列表与全局配置
+WikitDB-Serverless/
+├── web/                    # Next.js 网站
+│   ├── pages/              # 页面与 API 路由
+│   ├── components/         # 复用组件
+│   ├── contexts/           # React 上下文
+│   ├── utils/              # 鉴权、安全、渲染及业务工具
+│   ├── content/            # 静态内容
+│   ├── public/             # 静态资源及 FTML WASM
+│   ├── styles/             # 样式
+│   ├── scripts/            # 开发、SMTP 和 FTML 脚本
+│   ├── tests/              # 单元测试
+│   ├── middleware.js       # 全局限速 / Honeypot
+│   └── next.config.js      # Next.js 配置及安全头
+├── worker/
+│   ├── auto-crawler.js     # 主爬虫及每日备份调度
+│   ├── auto-attribution.js # 归属与作者评分同步
+│   └── utils/             # 归属解析、备份参数
+├── shared/
+│   ├── prisma.js          # Prisma Client 及 Setting 扩展
+│   ├── prisma/            # 数据库 schema
+│   └── wikitdb.config.js  # 站点列表与全局配置
+├── .github/workflows/      # CI
+├── .env.example            # 本地环境配置模板
+├── package.json            # workspace 定义及根目录命令
+└── package-lock.json       # 统一依赖锁文件
 ```
 
 ## 可用脚本
@@ -136,12 +152,14 @@ WikitDB-Server/
 | `npm start` | 启动生产服务器 |
 | `npm run lint` | ESLint 检查 |
 | `npm run typecheck` | TypeScript 类型检查 (`tsc --noEmit`) |
-| `npm test` | 运行单元测试 (`node --test tests/*.test.js`) |
+| `npm test` | 运行网站单元测试 |
 | `npm run test:ftml` | FTML 运行时测试 |
-| `npm run worker` | 启动备份定时任务 worker |
+| `npm run worker` | 启动主爬虫及每日备份调度 |
 | `npm run prisma:generate` | 生成 Prisma Client |
 | `npm run prisma:push` | 同步 schema 到数据库 |
 | `npm run prisma:studio` | 打开 Prisma Studio 可视化管理数据库 |
+
+以上命令均在仓库根目录运行。依赖由 npm workspaces 统一安装，网站构建产物位于 `web/.next/`。
 
 ## TypeScript 渐进式迁移
 
@@ -158,7 +176,7 @@ WikitDB-Server/
 - **`TRUST_PROXY=true`** 仅在请求总是经过可信反代（反代会覆写转发头）时开启
 - **管理员权限**仅由数据库 `User.isAdmin` 字段控制，无基于用户名的管理员兜底
 - **运行时数据与凭据**不得提交至 `data/` 或环境文件
-- **Wikidot 管理代理工具**仅接受 `wikitdb.config.js` 中声明的 HTTPS origin
+- **Wikidot 管理代理工具**仅接受 `shared/wikitdb.config.js` 中声明的 HTTPS origin
 - **CSRF 防护**：写操作校验 Origin / Referer
 - **限速**：IP + Key 双层（内存 + DB 持久化），middleware 层全局生效
 - **Honeypot**：对常见攻击路径返回 800-2000ms 随机延迟并记录行为日志
