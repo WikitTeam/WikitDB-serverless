@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import TradingChart from '#components/TradingChart';
+import VoteHistoryChart from '#components/VoteHistoryChart';
 import WikidotDiscussion from '#components/WikidotDiscussion';
 
 const config = require('@wikitdb/shared/config');
@@ -209,24 +209,6 @@ const PageDetail = () => {
     }
 
     if (!data) return null;
-
-    let chartData = [];
-    let markers = [];
-
-    if (data.scoreHistory && data.scoreHistory.length > 0) {
-        let lastTs = 0;
-        chartData = data.scoreHistory.map(item => {
-            let ts = Math.floor(new Date(item.time).getTime() / 1000);
-            if (ts <= lastTs) {
-                ts = lastTs + 1;
-            }
-            lastTs = ts;
-            return {
-                time: ts,
-                value: item.score,
-            };
-        });
-    }
 
     const marginAmount = Number(margin) || 0;
     const estFee = marginAmount * 0.01;
@@ -585,7 +567,7 @@ const PageDetail = () => {
 
                         {activeTab === '评分' && (
                             <div className="space-y-6">
-                                {chartData.length > 1 ? (
+                                {data.scoreHistory?.length > 0 ? (
                                     <div>
                                         <div className="mb-4 flex items-start justify-between">
                                             <div>
@@ -602,13 +584,13 @@ const PageDetail = () => {
                                                 开仓
                                             </button>
                                         </div>
-                                        <div className="relative h-[320px] w-full overflow-hidden rounded border border-line bg-canvas">
-                                            <TradingChart data={chartData} markers={markers} stepLine={true} />
+                                        <div className="h-[200px] w-full sm:h-[220px]">
+                                            <VoteHistoryChart data={data.scoreHistory} />
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="rounded border border-dashed border-line p-10 text-center text-sm text-fg-3">
-                                        暂无交易数据，等待大盘开市...
+                                        暂无投票历史
                                     </div>
                                 )}
 

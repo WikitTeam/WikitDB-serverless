@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, CrosshairMode, LineType } from 'lightweight-charts';
+import { createChart, CrosshairMode } from 'lightweight-charts';
 
 const isDark = () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
@@ -8,7 +8,7 @@ const getThemeColors = () => isDark()
     ? { grid: 'rgba(255, 255, 255, 0.06)', text: '#a1a1aa' }
     : { grid: 'rgba(0, 0, 0, 0.06)', text: '#52525b' };
 
-export default function TradingChart({ data, markers = [], isCandle = false, stepLine = false }) {
+export default function TradingChart({ data, markers = [], isCandle = false }) {
     const chartContainerRef = useRef();
     const chartRef = useRef();
 
@@ -56,16 +56,6 @@ export default function TradingChart({ data, markers = [], isCandle = false, ste
                 wickUpColor: '#16a34a',
                 wickDownColor: '#e11d48',
             });
-        } else if (stepLine) {
-            mainSeries = chart.addAreaSeries({
-                lineColor: '#16a34a',
-                topColor: 'rgba(22, 163, 74, 0.28)',
-                bottomColor: 'rgba(22, 163, 74, 0.02)',
-                lineWidth: 2,
-                lineType: LineType.Simple,
-                crosshairMarkerVisible: true,
-                crosshairMarkerRadius: 3,
-            });
         } else {
             mainSeries = chart.addAreaSeries({
                 lineColor: '#8b5cf6',
@@ -112,7 +102,7 @@ export default function TradingChart({ data, markers = [], isCandle = false, ste
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [data, markers, isCandle, stepLine]);
+    }, [data, markers, isCandle]);
 
     return <div ref={chartContainerRef} className="w-full h-full" />;
 }
