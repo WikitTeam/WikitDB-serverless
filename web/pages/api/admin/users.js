@@ -1,4 +1,5 @@
 import prisma from '@wikitdb/shared/prisma';
+import bcrypt from 'bcryptjs';
 import { withAdmin } from '#utils/withAdmin';
 
 function parseStaffSites(value) {
@@ -61,8 +62,39 @@ async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-        const { targetUser, action, staffSites } = req.body;
+        const { targetUser, action, staffSites, password } = req.body || {};
         const operator = req.admin.username; // 从 withAdmin 挂载的数据中获取
+
+        if (action === 'create') {
+            if (typeof targetUser !== 'string' || targetUser.length < 2 || targetUser.length > 20) {
+                return res.status(400).json({ error: '用户名长度必须在 2-20 个字符之间' });
+            }
+            if (!/^[\w\u4e00-\u9fff-]+$/.test(targetUser)) {
+                return res.status(400).json({ error: '用户名只能包含字母、数字、下划线、中文和连字符' });
+            }
+            if (typeof password !== 'string' || password.length < 8) {
+                return res.status(400).json({ error: '密码长度不能少于 8 位' });
+            }
+            if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+                return res.status(400).json({ error: '密码必须同时包含字母和数字' });
+            }
+
+            try {
+                const passwordHash = await bcrypt.hash(password, 10);
+                await prisma.user.create({
+                    data: { username: targetUser, password: passwordHash },
+                    select: { id: true }
+                });
+                return res.status(201).json({ success: true, message: '用户已创建' });
+            } catch (error) {
+                if (error.code === 'P2002') {
+                    return res.status(409).json({ error: '该用户名已被注册' });
+                }
+                // Prisma 错误可能包含写入参数，不将完整异常交给外层日志。
+                console.error('[AdminUsers] 创建用户失败:', error.code || 'UNKNOWN');
+                return res.status(500).json({ error: '创建用户失败' });
+            }
+        }
 
         if (!targetUser || !action) {
             return res.status(400).json({ error: '参数不完整' });

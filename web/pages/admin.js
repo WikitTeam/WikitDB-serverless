@@ -17,6 +17,10 @@ export default function AdminDashboard() {
     const [currentUser, setCurrentUser] = useState(null);
     const [authChecked, setAuthChecked] = useState(false);
     const [users, setUsers] = useState([]);
+    const [showUserForm, setShowUserForm] = useState(false);
+    const [userForm, setUserForm] = useState({ username: '', password: '' });
+    const [creatingUser, setCreatingUser] = useState(false);
+    const [userMsg, setUserMsg] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [inspectData, setInspectData] = useState(null);
@@ -160,6 +164,28 @@ export default function AdminDashboard() {
     };
 
     const refreshUsers = () => api('/api/admin/users').then(d => setUsers(d.users || []));
+    const handleCreateUser = async (event) => {
+        event.preventDefault();
+        if (creatingUser) return;
+        setCreatingUser(true);
+        setUserMsg(null);
+        try {
+            await api('/api/admin/users', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'create', targetUser: userForm.username, password: userForm.password })
+            });
+            setUserForm({ username: '', password: '' });
+            setShowUserForm(false);
+            setSearchQuery('');
+            setUserMsg({ type: 'ok', text: '用户已创建' });
+            await refreshUsers().catch(() => setUserMsg({ type: 'error', text: '用户已创建，列表刷新失败' }));
+        } catch (e) {
+            setUserMsg({ type: 'error', text: e.error || '创建用户失败' });
+        } finally {
+            setCreatingUser(false);
+        }
+    };
+
     const refreshAccessLogs = () => api('/api/admin/access-logs?limit=100').then(d => setAccessLogs(d.logs || []));
     const refreshHoneypot = () => api('/api/admin/honeypot-logs?limit=200').then(d => setHoneypotLogs(d.logs || []));
     const refreshSites = () => api('/api/admin/sites')
@@ -599,7 +625,38 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-3">
                                 <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="搜索用户名..."
                                     className={inputLgCls} />
+                                <button type="button" onClick={() => { setShowUserForm(true); setUserMsg(null); }} disabled={showUserForm || creatingUser}
+                                    className={btnPrimary + ' disabled:opacity-50'}>添加用户</button>
                             </div>
+
+                            {userMsg && (
+                                <div role="status" className={`rounded-md border px-3 py-2 text-sm ${userMsg.type === 'ok' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300'}`}>
+                                    {userMsg.text}
+                                </div>
+                            )}
+
+                            {showUserForm && (
+                                <form onSubmit={handleCreateUser} className={cardCls + ' space-y-3'}>
+                                    <div className="text-sm font-medium text-fg-2">添加用户</div>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <label className="flex flex-col gap-1 text-sm text-fg-2">
+                                            用户名
+                                            <input value={userForm.username} onChange={e => setUserForm(p => ({ ...p, username: e.target.value }))}
+                                                required minLength={2} maxLength={20} autoComplete="off" disabled={creatingUser} className={inputLgCls} />
+                                        </label>
+                                        <label className="flex flex-col gap-1 text-sm text-fg-2">
+                                            密码
+                                            <input type="password" value={userForm.password} onChange={e => setUserForm(p => ({ ...p, password: e.target.value }))}
+                                                required minLength={8} autoComplete="new-password" disabled={creatingUser} className={inputLgCls} />
+                                        </label>
+                                    </div>
+                                    <div className="text-xs text-fg-3">用户名为 2～20 位字母、数字、下划线、中文或连字符；密码至少 8 位，同时包含字母和数字。</div>
+                                    <div className="flex items-center gap-2">
+                                        <button type="submit" disabled={creatingUser} className={btnPrimary + ' disabled:opacity-50'}>{creatingUser ? '创建中...' : '创建用户'}</button>
+                                        <button type="button" disabled={creatingUser} onClick={() => { setShowUserForm(false); setUserForm({ username: '', password: '' }); setUserMsg(null); }} className={btnGhost}>取消</button>
+                                    </div>
+                                </form>
+                            )}
 
                             {staffMsg && (
                                 <div className={`rounded-md border px-3 py-2 text-sm ${staffMsg.type === 'ok' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300'}`}>
