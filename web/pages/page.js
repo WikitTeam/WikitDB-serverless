@@ -637,7 +637,7 @@ const PageDetail = () => {
                         {/* 【修改点 2】：把讨论区组件移动到条件渲染框内部，并向上拉回一点外边距消除断层感 */}
                         {activeTab === '讨论' && (
                             <div className="-mt-6">
-                                <WikidotDiscussion wiki={site} pageId={page} />
+                                <WikidotDiscussion key={`${site}:${page}`} wiki={site} pageId={page} />
                             </div>
                         )}
                     </div>

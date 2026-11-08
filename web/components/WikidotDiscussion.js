@@ -38,57 +38,36 @@ const WikidotDiscussion = ({ wiki, pageId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
 
     const [anonContent, setAnonContent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMsg, setSubmitMsg] = useState('');
-    // RSS 更新相关状态
-    const [rssData, setRssData] = useState(null);
-    const [rssLoading, setRssLoading] = useState(false);
-    const [rssError, setRssError] = useState('');
-    const [showRss, setShowRss] = useState(true);
-
-
     useEffect(() => {
         if (!wiki || !pageId) return;
+        const controller = new AbortController();
+        setLoading(true);
+        setError('');
 
         const fetchDiscussion = async () => {
             try {
-                const res = await fetch(`/api/wikidot-forum?wiki=${wiki}&pageId=${pageId}`);
+                const res = await fetch(`/api/wikidot-forum?wiki=${encodeURIComponent(wiki)}&pageId=${encodeURIComponent(pageId)}&p=${currentPage}`, {
+                    signal: controller.signal,
+                });
                 const json = await res.json();
 
                 if (!res.ok) throw new Error(json.error || '请求失败');
                 setData(json);
             } catch (err) {
-                setError(err.message);
+                if (!controller.signal.aborted) setError(err.message);
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         fetchDiscussion();
-    }, [wiki, pageId]);
-    // 抓取页面单页讨论的 RSS（页面 HTML → option 栏 → 讨论区 id → feed/forum/t-{id}.xml）
-    useEffect(() => {
-        if (!wiki || !pageId) return;
-
-        const fetchRss = async () => {
-            setRssLoading(true);
-            setRssError('');
-            try {
-                const res = await fetch(`/api/page/discussion-rss?wiki=${wiki}&page=${encodeURIComponent(pageId)}`);
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.error || 'RSS 获取失败');
-                setRssData(json);
-            } catch (err) {
-                setRssError(err.message);
-            } finally {
-                setRssLoading(false);
-            }
-        };
-
-        fetchRss();
-    }, [wiki, pageId]);
+        return () => controller.abort();
+    }, [wiki, pageId, currentPage]);
 
     const handleAnonSubmit = async () => {
         if (!anonContent.trim() || !data || !data.threadId) return;
@@ -160,103 +139,42 @@ const WikidotDiscussion = ({ wiki, pageId }) => {
                 </div>
             )}
 
-            {data && data.threads && data.threads.length === 0 && (
+            {!loading && !error && data && data.threads && data.threads.length === 0 && (
                 <div className="text-center py-10 text-fg-3 bg-sunken rounded-xl border border-dashed border-line">
                     这篇文档目前在原站没有任何人评论。
                 </div>
             )}
 
-            {data && data.threads && data.threads.length > 0 && (
+            {!loading && !error && data && data.threads && data.threads.length > 0 && (
                 <div className="space-y-4 mb-8">
                     {data.threads.map(post => (
                         <PostItem key={post.postId} post={post} />
                     ))}
                 </div>
             )}
-
-
-            {/* RSS 更新区块：页面单页讨论 RSS（option 栏讨论区 id → feed/forum/t-{id}.xml） */}
-            <div className="mb-6 bg-panel rounded-xl border border-line overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3">
+            {data && data.maxPage > 1 && (
+                <div className="flex items-center justify-center gap-4 my-6">
                     <button
-                        onClick={() => setShowRss(!showRss)}
-                        className="flex items-center gap-2 text-sm font-semibold text-fg-2 hover:text-fg transition-colors"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={loading || currentPage <= 1}
+                        aria-label="讨论上一页"
+                        title="上一页"
+                        className="p-2 text-fg-2 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                        <i className={`fa-solid fa-rss text-orange-600 dark:text-orange-400 ${showRss ? '' : 'opacity-60'}`}></i>
-                        RSS 更新
-                        {rssData && rssData.rss && rssData.rss.items.length > 0 && (
-                            <span className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
-                                {rssData.rss.items.length}
-                            </span>
-                        )}
-                        <i className={`fa-solid fa-chevron-${showRss ? 'up' : 'down'} text-xs text-fg-3 transition-transform`}></i>
+                        <i className="fa-solid fa-chevron-left" aria-hidden="true"></i>
                     </button>
-                    <div className="flex items-center gap-3">
-                        {rssLoading && <span className="text-xs text-fg-3 animate-pulse">加载中...</span>}
-                        {rssData && rssData.rssUrl && (
-                            <a
-                                href={rssData.rssUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 transition-colors"
-                                title={rssData.rssUrl}
-                            >
-                                订阅此讨论 <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i>
-                            </a>
-                        )}
-                    </div>
+                    <span className="text-sm text-fg-3">{currentPage} / {data.maxPage}</span>
+                    <button
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={loading || currentPage >= data.maxPage}
+                        aria-label="讨论下一页"
+                        title="下一页"
+                        className="p-2 text-fg-2 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <i className="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                    </button>
                 </div>
-
-                {showRss && (
-                    <div className="px-4 pb-4">
-                        {rssLoading && <div className="text-sm text-fg-3 animate-pulse py-4">正在加载 RSS 更新...</div>}
-
-                        {rssError && (
-                            <div className="text-sm text-red-600 dark:text-red-400 py-3">{rssError}</div>
-                        )}
-
-                        {rssData && rssData.hasDiscussion === false && (
-                            <div className="text-sm text-fg-3 py-3">
-                                该页面在原站没有启用讨论区，无 RSS 可订阅。
-                            </div>
-                        )}
-
-                        {rssData && rssData.rss && rssData.rss.items.length === 0 && (
-                            <div className="text-sm text-fg-3 py-3">RSS 源暂无更新。</div>
-                        )}
-
-                        {rssData && rssData.rss && rssData.rss.items.length > 0 && (
-                            <div className="space-y-3">
-                                {rssData.rss.items.map(item => (
-                                    <div key={item.guid || item.postId} className="bg-sunken border border-line rounded-lg p-3">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-sm font-medium text-accent flex items-center gap-2">
-                                                <i className="fa-solid fa-user text-xs opacity-60"></i>
-                                                {item.authorName || '匿名'}
-                                            </span>
-                                            <span className="text-xs text-fg-3 whitespace-nowrap">{item.pubDate}</span>
-                                        </div>
-                                        <div
-                                            className="text-fg-2 text-sm mt-2 prose prose-invert max-w-none leading-relaxed"
-                                            dangerouslySetInnerHTML={{ __html: item.contentHtml }}
-                                        ></div>
-                                        {item.link && (
-                                            <a
-                                                href={item.link}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-block mt-2 text-xs text-fg-3 hover:text-accent transition-colors"
-                                            >
-                                                查看原帖 <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i>
-                                            </a>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+            )}
 
             {data && data.threadId && (
                 <div className="bg-panel p-5 rounded-xl border border-line mt-6">

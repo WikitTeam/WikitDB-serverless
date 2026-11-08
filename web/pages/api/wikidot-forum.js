@@ -63,7 +63,7 @@ export default async function handler(req, res) {
                 const parsed = typeof record.value === 'string'
                     ? JSON.parse(record.value)
                     : record.value;
-                if (parsed && parsed.threadId) {
+                if (parsed && parsed.threadId && parsed.maxPage) {
                     parsed.threads = sanitizePostTree(parsed.threads);
                     return res.status(200).json(parsed);
                 }
@@ -102,15 +102,33 @@ export default async function handler(req, res) {
         }
 
         if (!threadId) {
-            const emptyData = { threadTitle: '暂无讨论', threadId: null, url: '', maxPage: 1, currentPage: pageNum, threads: [] };
+            const emptyData = { threadTitle: '暂无讨论', threadId: null, url: '', total: 0, maxPage: 1, currentPage: pageNum, threads: [] };
             return res.status(200).json(emptyData);
         }
 
         const forumUrl = `${baseUrl}/forum/t-${threadId}`;
-        const targetForumUrl = pageNum > 1 ? `${forumUrl}/page/${pageNum}` : forumUrl;
-        
-        const forumRes = await axios.get(targetForumUrl, { headers: reqHeaders, timeout: 12000 });
-        const $forum = cheerio.load(forumRes.data);
+        // Wikidot 通过帖子模块翻页，讨论串路径中的页码不会切换内容。
+        const forumRes = pageNum > 1
+            ? await axios.post(`${baseUrl}/ajax-module-connector.php`, new URLSearchParams({
+                moduleName: 'forum/ForumViewThreadPostsModule',
+                t: threadId,
+                pageNo: String(pageNum),
+                wikidot_token7: '123456'
+            }).toString(), {
+                headers: {
+                    ...reqHeaders,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Cookie': botCookie || 'wikidot_token7=123456;'
+                },
+                timeout: 12000
+            })
+            : await axios.get(forumUrl, { headers: reqHeaders, timeout: 12000 });
+        if (pageNum > 1 && forumRes.data.status !== 'ok') {
+            throw new Error(forumRes.data.message || '讨论分页请求失败');
+        }
+        const $forum = cheerio.load(pageNum > 1 ? forumRes.data.body : forumRes.data);
+        const pageNumbers = $forum('.pager-no').first().text().match(/\d+/g);
+        const maxPage = pageNumbers ? Number(pageNumbers[pageNumbers.length - 1]) : 1;
         const posts = [];
 
         const postElements = $forum('.post').toArray();
@@ -156,7 +174,7 @@ export default async function handler(req, res) {
             else rootPosts.push(p);
         });
 
-        const forumData = { threadId, url: forumUrl, total: posts.length, currentPage: pageNum, threads: rootPosts };
+        const forumData = { threadId, url: forumUrl, total: posts.length, maxPage, currentPage: pageNum, threads: rootPosts };
 
         await prisma.setting.upsert({
             where: { key: cacheKey },
